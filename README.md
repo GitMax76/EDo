@@ -40,7 +40,7 @@ Il modulo dell'app invia messaggi privati al Worker Cloudflare `edofa-feedback.m
 
 Il servizio limita a **due feedback per indirizzo IP e mese di calendario Europe/Rome**. Le persone sulla stessa rete possono condividere il limite; VPN e indirizzi dinamici impediscono un'identificazione certa per persona. Nel database si conserva un identificatore mensile della rete ottenuto con HMAC, senza IP in chiaro. Cloudflare tratta comunque le richieste secondo le proprie impostazioni e condizioni.
 
-I messaggi sono consultabili dal proprietario in **Cloudflare > D1 > edofa-feedback-db > Studio > feedback**. Non vengono pubblicati su GitHub e non vengono inviate email. Configurazione, limiti e lettura dei messaggi: [cloudflare/README.md](cloudflare/README.md).
+I messaggi sono consultabili dal proprietario in **Cloudflare > D1 > edofa-feedback-db > Studio > feedback**. Non vengono pubblicati su GitHub e non vengono inviate email. Se Telegram e configurato, i nuovi feedback vengono inoltrati alla chat privata del gestore. Configurazione, limiti e lettura dei messaggi: [cloudflare/README.md](cloudflare/README.md).
 
 La gestione delle issue GitHub resta separata: `.github/workflows/feedback.yml` continua a limitare le issue a due per account al mese, chiudendo quelle in eccesso dopo la creazione. Il modulo pubblico non crea issue.
 
