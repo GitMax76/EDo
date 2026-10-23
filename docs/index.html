@@ -22,7 +22,7 @@
       <button class="tool active" data-tool="move"><span class="tool-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Sposta gli elementi<small>Trascina le tue aggiunte</small></span></button>
       <button class="tool" data-tool="text"><span class="tool-icon">T</span><span>Scrivi testo<small>Trascina e scrivi dentro</small></span></button>
       <button class="tool" data-tool="image"><span class="tool-icon">▧</span><span>Immagine o firma<small>Dal tuo dispositivo</small></span></button>
-      <button class="tool" data-tool="correct"><span class="tool-icon">✎</span><span>Correggi il PDF<small>Trascina sulla zona</small></span></button>
+      <button class="tool" data-tool="correct"><span class="tool-icon">✎</span><span>Bianchetto<small>Copri e riscrivi sopra</small></span></button>
       <button class="tool" data-tool="highlight"><span class="tool-icon">▰</span><span>Evidenzia<small>Trascina sull’area</small></span></button>
       <button class="tool" data-tool="redact"><span class="tool-icon">■</span><span>Oscura un’area<small>Trascina sulla parte privata</small></span></button>
     </div>
@@ -50,7 +50,8 @@
     <div id="element-controls" hidden>
       <label class="field" id="text-field">Testo<textarea id="element-text" rows="3"></textarea></label>
       <div class="field-row"><label class="field" id="size-field">Dimensione<input type="number" id="element-size" min="6" max="100" value="16"></label><label class="field" id="color-field">Colore<input type="color" id="element-color" value="#172b42"></label></div>
-      <button id="apply" class="full">Applica modifiche</button>
+      <label class="field" id="background-field" hidden>Colore dello sfondo<input type="color" id="element-background" value="#ffffff"><small>Rilevato dai bordi. Puoi correggerlo qui.</small></label>
+        <button id="apply" class="full">Applica modifiche</button>
       <div class="button-row"><button id="smaller">− Piccolo</button><button id="bigger">+ Grande</button></div>
       <button id="delete-element" class="danger full">Elimina elemento</button>
       <p class="tiny">Puoi trascinarlo e ridimensionarlo dall’angolo in basso a destra.</p>

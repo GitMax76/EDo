@@ -1,3 +1,4 @@
+import { dominantColor } from './background.mjs';
 import * as pdfjs from './vendor/pdf.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.mjs', import.meta.url).href;
 const $ = id => document.getElementById(id);
@@ -42,16 +43,18 @@ function tool(name) {
   commitInline();
   S.tool = name;
   for (const b of document.querySelectorAll('[data-tool]')) { b.classList.toggle('active', b.dataset.tool === name); b.setAttribute('aria-pressed', b.dataset.tool === name); }
-  const hints = {move: 'Trascina per spostare. Doppio clic sul tuo testo per scriverci direttamente dentro.', text: 'Trascina un riquadro sulla pagina, poi scrivi direttamente al suo interno.', image: 'Fai clic sulla pagina, poi scegli una tua immagine o firma.', correct: 'Trascina un riquadro sul testo da correggere e scrivi direttamente nella zona selezionata.', highlight: 'Trascina un rettangolo sulla parte che vuoi evidenziare.', redact: 'Trascina sull’area da oscurare: nel PDF esportato il contenuto sotto la banda sarà eliminato.'};
+  const hints = {move: 'Trascina per spostare. Doppio clic sul tuo testo per scriverci direttamente dentro.', text: 'Trascina un riquadro sulla pagina, poi scrivi direttamente al suo interno.', image: 'Fai clic sulla pagina, poi scegli una tua immagine o firma.', correct: 'Trascina sulla parte da coprire. Scrivi nel riquadro oppure premi Fatto per lasciarlo vuoto.', highlight: 'Trascina un rettangolo sulla parte che vuoi evidenziare.', redact: 'Trascina sull’area da oscurare: nel PDF esportato il contenuto sotto la banda sarà eliminato.'};
   $('hinttext').textContent = hints[name];
   $('paper').style.cursor = name === 'move' ? 'default' : 'crosshair';
 }
 function inspector() {
   const e = element();
   $('element-controls').hidden = !e;
-  $('element-title').textContent = e ? ({text: 'Il tuo testo', image: 'La tua immagine', highlight: 'La tua evidenziazione', redact: 'La tua area oscurata', correct: 'La tua correzione'}[e.type]) : 'Un clic, poi sposta.';
+  $('element-title').textContent = e ? ({text: 'Il tuo testo', image: 'La tua immagine', highlight: 'La tua evidenziazione', redact: 'La tua area oscurata', correct: 'Il tuo bianchetto'}[e.type]) : 'Un clic, poi sposta.';
   $('element-help').textContent = e ? 'Trascina per spostare. Usa questi comandi per rifinire.' : 'Seleziona una tua aggiunta sulla pagina per modificarla.';
   if (!e) return;
+  $('background-field').hidden=e.type!=='correct';
+  $('element-background').value=e.background||'#ffffff';
   const text = ['text', 'correct'].includes(e.type);
   $('text-field').hidden = !text; $('size-field').hidden = !text; $('color-field').hidden = !text;
   $('apply').hidden = !text;
@@ -77,7 +80,7 @@ function drawElements() {
     if (e.type === 'image') { const img = document.createElement('img'); img.src = e.data; img.alt = 'Immagine aggiunta'; content.append(img); }
     else if (e.type === 'highlight') node.style.background = '#ffd94d60';
     else if (e.type === 'redact') node.style.background = '#000';
-    else { content.textContent = e.text; content.style.fontSize = `${e.size*S.scale}px`; content.style.color = e.color; if (e.type === 'correct') node.style.background = '#fff'; }
+    else { content.textContent = e.text; content.style.fontSize = `${e.size*S.scale}px`; content.style.color = e.color; if (e.type === 'correct') node.style.background = e.background||'#ffffff'; }
     node.append(content);
     if (e.id === S.selected) { const handle = document.createElement('span'); handle.className = 'handle'; handle.dataset.resize = 'true'; node.append(handle); }
     layer.append(node);
@@ -149,12 +152,22 @@ function coordinates(event) {
   const x=(event.clientX-box.left)/S.scale, y=(event.clientY-box.top)/S.scale;
   return ({0:{x,y},90:{x:y,y:S.height-x},180:{x:S.width-x,y:S.height-y},270:{x:S.width-y,y:x}})[page().rotation];
 }
+function sampleBackground(rect) {
+  const canvas=$('pdfcanvas'),ctx=canvas.getContext('2d'),samples=[];
+  const sx=canvas.width/S.width,sy=canvas.height/S.height;
+  for(let i=0;i<=24;i++){const t=i/24;for(const [x,y] of [[rect.x+rect.w*t,rect.y],[rect.x+rect.w*t,rect.y+rect.h],[rect.x,rect.y+rect.h*t],[rect.x+rect.w,rect.y+rect.h*t]]){
+    samples.push(Array.from(ctx.getImageData(clamp(Math.round(x*sx),0,canvas.width-1),clamp(Math.round(y*sy),0,canvas.height-1),1,1).data));
+  }}
+  return dominantColor(samples);
+}
 function beginInline(rect, initial='', target=null, type='text', size=16) {
   commitInline();
-  inlineEdit = {page:page(), rect, target, type, size, originalSize:size, color:target?.color||'#172b42'};
+  inlineEdit = {page:page(), rect, target, type, size, originalSize:size, color:target?.color||'#172b42',background:type==='correct'?(target?.background||sampleBackground(rect)):null};
   const editor=$('inline-editor');
   Object.assign(editor.style,{left:`${rect.x*S.scale}px`,top:`${rect.y*S.scale}px`,width:`${rect.w*S.scale}px`,height:`${rect.h*S.scale}px`});
   editor.classList.toggle('correction',type==='correct');
+  editor.style.background=inlineEdit.background||'';
+  $('inline-text').style.background=inlineEdit.background||'';
   const actions=editor.querySelector('.inline-actions');
   actions.style.top=rect.y+rect.h+35>S.height?'auto':'100%';
   actions.style.bottom=rect.y+rect.h+35>S.height?'100%':'auto';
@@ -184,7 +197,7 @@ function commitInline(cancel=false) {
     if(changed){
       checkpoint();
       if(edit.target){edit.target.text=text;edit.target.size=edit.size;S.selected=edit.target.id;}
-      else{const e={id:uid(),type:edit.type,text,size:edit.size,color:edit.color,...edit.rect};edit.page.elements.push(e);S.selected=e.id;}
+      else{const e={id:uid(),type:edit.type,text,size:edit.size,color:edit.color,...(edit.type==='correct'?{background:edit.background}:{}),...edit.rect};edit.page.elements.push(e);S.selected=e.id;}
     }
   }
   S.tool='move';
@@ -244,7 +257,7 @@ function pointerUp(event){
       if(S.tool==='text'||S.tool==='correct'){
         if(w<35||h<20){status('Trascina un riquadro un po’ più grande per scrivere al suo interno.');return;}
         const hits=S.tool==='correct'?S.textItems.filter(t=>t.x<x+w&&t.x+t.w>x&&t.y<y+h&&t.y+t.h>y):[];
-        const initial=hits.map(t=>t.text).join(' ');
+        const initial='';
         beginInline({x,y,w,h},initial,null,S.tool,hits.length?clamp(hits[0].size,6,100):16);
       }else addElement({type:S.tool,x,y,w,h});
     }
@@ -273,7 +286,7 @@ async function rasterize(p){
     else if(e.type==='highlight'){ctx.fillStyle='#ffd94d';ctx.globalAlpha=.38;ctx.fillRect(e.x,e.y,e.w,e.h);}
     else if(e.type==='redact'){ctx.fillStyle='black';ctx.fillRect(e.x,e.y,e.w,e.h);}
     else{
-      if(e.type==='correct'){ctx.fillStyle='white';ctx.fillRect(e.x,e.y,e.w,e.h);}
+      if(e.type==='correct'){ctx.fillStyle=e.background||'#ffffff';ctx.fillRect(e.x,e.y,e.w,e.h);}
       ctx.fillStyle=e.color;ctx.font=`${e.size}px Arial`;ctx.textBaseline='top';
       wrapText(ctx,e.text,e.w-2).forEach((line,i)=>ctx.fillText(line,e.x,e.y+i*e.size*1.25+e.size*.12));
     }ctx.restore();
@@ -318,6 +331,7 @@ async function loadProject(file){
       if(!p.blank&&(!Number.isInteger(p.source)||p.source<0||p.source>=project.sources.length||!Number.isInteger(p.number)||p.number<1))throw Error('Riferimento pagina non valido.');
       for(const e of p.elements){
         if(!allowed.has(e.type)||![e.x,e.y,e.w,e.h].every(n=>Number.isFinite(n)&&n>=0)||!e.w||!e.h||e.w>20000||e.h>20000)throw Error('Elemento progetto non valido.');
+        if(e.background!==undefined&&!/^#[0-9a-f]{6}$/i.test(e.background))throw Error('Colore sfondo non valido.');
         if(e.type==='image'&&!/^data:image\/(png|jpeg);base64,/.test(e.data))throw Error('Immagine progetto non valida.');
         if(['text','correct'].includes(e.type)&&(typeof e.text!=='string'||!Number.isFinite(e.size)||e.size<6||e.size>100||!/^#[0-9a-f]{6}$/i.test(e.color)))throw Error('Testo progetto non valido.');
       }
@@ -374,7 +388,7 @@ $('inline-text').addEventListener('input',fitInlineText);
 $('inline-text').addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();commitInline(true);}else if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();commitInline();}});
 $('inline-text').addEventListener('blur',event=>{if(!$('inline-editor').contains(event.relatedTarget))commitInline();});
 $('paper').addEventListener('dblclick',event=>{if(event.target.closest('#inline-editor'))return;const hit=event.target.closest('.element');const e=page()?.elements.find(e=>e.id===hit?.dataset.id);if(e&&['text','correct'].includes(e.type))beginInline({x:e.x,y:e.y,w:e.w,h:e.h},e.text,e,e.type,e.size);});
-$('apply').onclick=()=>{const e=element();if(!e)return;const size=Number($('element-size').value);if(!Number.isFinite(size)||size<6||size>100){toast('Scegli una dimensione tra 6 e 100.');return;}checkpoint();e.text=$('element-text').value;e.size=size;e.color=$('element-color').value;if(e.type==='text'){const dim=measuredText(e.text,size,Math.min(400,S.width-e.x));e.w=dim.w;e.h=Math.min(S.height-e.y,dim.h);}drawElements();};
+$('apply').onclick=()=>{const e=element();if(!e)return;const size=Number($('element-size').value);if(!Number.isFinite(size)||size<6||size>100){toast('Scegli una dimensione tra 6 e 100.');return;}checkpoint();e.text=$('element-text').value;e.size=size;e.color=$('element-color').value;if(e.type==='correct')e.background=$('element-background').value;if(e.type==='text'){const dim=measuredText(e.text,size,Math.min(400,S.width-e.x));e.w=dim.w;e.h=Math.min(S.height-e.y,dim.h);}drawElements();};
 function resizeElement(factor){const e=element();if(!e)return;checkpoint();const f=Math.min(factor,(S.width-e.x)/e.w,(S.height-e.y)/e.h);e.w=Math.max(15,e.w*f);e.h=Math.max(10,e.h*f);if(['text','correct'].includes(e.type))e.size=clamp(e.size*f,6,100);drawElements();}
 $('smaller').onclick=()=>resizeElement(1/1.15);$('bigger').onclick=()=>resizeElement(1.15);
 $('delete-element').onclick=()=>{if(!element())return;checkpoint();page().elements=page().elements.filter(e=>e.id!==S.selected);S.selected=null;drawElements();listPages();};
