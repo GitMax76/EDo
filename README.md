@@ -4,7 +4,7 @@ Prima versione web **0.7.0-beta**: apri un PDF, trascina una zona e scrivi diret
 
 ## Apri l'app
 
-Il sito di questa repository è pubblicato con GitHub Pages: **https://gitmax76.github.io/EDo/**.
+Indirizzo GitHub Pages: **https://gitmax76.github.io/EDo/**, operativo dopo l’attivazione di Pages e la prima pubblicazione completata.
 
 Puoi anche scaricare il codice, estrarre tutti i file e fare doppio clic su **AVVIA-EDOFA.cmd**. Per l'avvio locale serve Python 3.10 o successivo, senza installare altre librerie. Non aprire `docs/index.html` con doppio clic: i moduli PDF richiedono HTTP o HTTPS.
 

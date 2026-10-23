@@ -26,6 +26,7 @@ jobs:
         run: |
           node --check docs/app.js
           node --check docs/feedback.js
+          node --check docs/ui-settings.js
           node --test tests/*.test.cjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
