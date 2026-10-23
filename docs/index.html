@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/svg+xml" href="./logo.svg"><title>E.Do.-Fa — Editor Documenti Facile</title>
+<meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' blob: data:; img-src 'self' data: blob:; font-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action https://github.com"><meta name="description" content="Editor PDF personale: aggiungi e sposta testo e immagini, correggi e gestisci le pagine. Elaborazione nel browser.">
+<link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./leggibile.css">
+<script src="./vendor/pdf-lib.min.js" defer></script>
+<script type="module" src="./app.js"></script>
+</head>
+<body><section id="file-help" hidden><div><img class="brand-icon" src="./logo.svg" alt="Logo E.Do.-Fa"><h1>E.Do.-Fa</h1><h2>Editor Documenti Facile</h2><p>Per aprire l’app sul tuo PC:</p><ol><li>Estrai tutti i file dello ZIP.</li><li>Apri la cartella estratta.</li><li>Fai doppio clic su <strong>AVVIA-EDOFA.cmd</strong>.</li></ol><p>Il browser si aprirà automaticamente. Non occorre aprire index.html.</p></div></section>
+<header>
+  <a class="brand" href="./" aria-label="E.Do.-Fa, pagina iniziale"><img class="brand-icon" src="./logo.svg" alt=""><span><span class="wordmark">E<span class="brand-dot">.</span>Do<span class="brand-dot">.</span>-Fa</span><small>Editor Documenti Facile</small></span></a>
+  <div class="privacy"><span class="dot"></span>I file restano sul tuo dispositivo</div>
+  <div class="header-actions"><button id="large-ui" aria-pressed="false" title="Ingrandisci il testo dei pulsanti e delle istruzioni">Testo più grande</button><button id="open">Apri PDF</button><button class="primary" id="export" disabled>Scarica PDF <span>↓</span></button></div>
+</header>
+<div class="documentbar"><div><span class="badge">VERSIONE WEB</span> <strong id="filename">Il tuo prossimo PDF, pronto da sistemare.</strong><span id="unsaved"></span></div><div><button id="undo" class="quiet" disabled>↶ Annulla</button><button id="help" class="quiet">Come funziona</button><button id="feedback-open" class="quiet">Suggerimenti e feedback</button></div></div>
+<main>
+  <aside class="tools">
+    <div class="section-label">SCEGLI UNO STRUMENTO</div>
+    <div class="toolset" role="group" aria-label="Strumenti">
+      <button class="tool active" data-tool="move"><span class="tool-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>Sposta gli elementi<small>Trascina le tue aggiunte</small></span></button>
+      <button class="tool" data-tool="text"><span class="tool-icon">T</span><span>Scrivi testo<small>Trascina e scrivi dentro</small></span></button>
+      <button class="tool" data-tool="image"><span class="tool-icon">▧</span><span>Immagine o firma<small>Dal tuo dispositivo</small></span></button>
+      <button class="tool" data-tool="correct"><span class="tool-icon">✎</span><span>Correggi il PDF<small>Trascina sulla zona</small></span></button>
+      <button class="tool" data-tool="highlight"><span class="tool-icon">▰</span><span>Evidenzia<small>Trascina sull’area</small></span></button>
+      <button class="tool" data-tool="redact"><span class="tool-icon">■</span><span>Oscura un’area<small>Trascina sulla parte privata</small></span></button>
+    </div>
+    <div class="section-label pages-title">LE TUE PAGINE <span id="pagecount">0</span></div>
+    <div id="pagelist" class="pagelist"><p class="muted">Le pagine compariranno qui.</p></div>
+    <div class="local-note"><span>✓</span><div>Nessun account necessario.<br>Nessun documento caricato online.</div></div>
+  </aside>
+  <section class="workspace" aria-label="Anteprima del documento">
+    <div id="hint" class="hint"><span class="hint-dot"></span><span id="hinttext">Apri un PDF oppure prova il documento di esempio.</span></div>
+    <div id="viewer" class="viewer">
+      <div id="welcome" class="welcome">
+        <img class="welcome-brand" src="./logo.svg" alt="Il documento sorridente di E.Do.-Fa"><span class="eyebrow">I PDF, FINALMENTE SEMPLICI</span>
+        <h1>Apri, modifica e salva.</h1>
+        <p>Il tuo PDF, con pochi semplici gesti.</p>
+        <button class="primary large" id="welcome-open">+ Apri il tuo PDF</button>
+        <button class="link" id="demo">Oppure prova con un esempio →</button>
+        <div class="welcome-foot">Puoi anche trascinare un PDF in questa finestra</div>
+      </div>
+      <div id="rotationBox" hidden><div id="paper"><canvas id="pdfcanvas"></canvas><div id="layer"></div><div id="selection" hidden></div><div id="inline-editor" hidden><textarea id="inline-text" aria-label="Scrivi direttamente sulla pagina" placeholder="Scrivi qui…" spellcheck="true"></textarea><div class="inline-actions"><button id="inline-done" type="button">Fatto ✓</button><button id="inline-cancel" type="button">Annulla</button></div></div></div></div>
+    </div>
+    <footer class="viewbar"><div><button id="prev" class="square" disabled aria-label="Pagina precedente">‹</button><span id="counter">Nessuna pagina</span><button id="next" class="square" disabled aria-label="Pagina successiva">›</button></div><div><button id="zoomout" class="square" aria-label="Riduci zoom">−</button><span id="zoomlabel">100%</span><button id="zoomin" class="square" aria-label="Aumenta zoom">+</button><button id="fit" class="quiet">Adatta</button></div></footer>
+  </section>
+  <aside class="inspector">
+    <div class="section-label">MODIFICA ELEMENTO</div><h2 id="element-title">Un clic, poi sposta.</h2><p id="element-help" class="muted">Seleziona una tua aggiunta sulla pagina per modificarla.</p>
+    <div id="element-controls" hidden>
+      <label class="field" id="text-field">Testo<textarea id="element-text" rows="3"></textarea></label>
+      <div class="field-row"><label class="field" id="size-field">Dimensione<input type="number" id="element-size" min="6" max="100" value="16"></label><label class="field" id="color-field">Colore<input type="color" id="element-color" value="#172b42"></label></div>
+      <button id="apply" class="full">Applica modifiche</button>
+      <div class="button-row"><button id="smaller">− Piccolo</button><button id="bigger">+ Grande</button></div>
+      <button id="delete-element" class="danger full">Elimina elemento</button>
+      <p class="tiny">Puoi trascinarlo e ridimensionarlo dall’angolo in basso a destra.</p>
+    </div>
+    <div class="divider"></div><div class="section-label">GESTISCI QUESTA PAGINA</div>
+    <div class="page-actions"><button id="rotate" disabled><span>↻</span> Ruota di 90°</button><div class="button-row"><button id="pagebefore" disabled>← Prima</button><button id="pageafter" disabled>Dopo →</button></div><button id="blank" disabled><span>＋</span> Aggiungi pagina vuota</button><button id="merge" disabled><span>⊕</span> Unisci un altro PDF</button><button id="delete-page" class="danger" disabled>Elimina pagina</button></div>
+    <div class="project-box"><strong>Vuoi riprenderlo più tardi?</strong><p>Il progetto conserva le aggiunte spostabili.</p><button id="save-project" disabled>Salva progetto</button><button id="load-project" class="link">Apri progetto</button></div>
+  </aside>
+</main>
+<div class="bottomline"><span><span class="dot"></span> Elaborazione sul dispositivo</span><span id="status" role="status" aria-live="polite">Pronto per iniziare.</span><span>Fatto per le piccole cose di ogni giorno.</span></div>
+<input type="file" id="pdf-input" accept="application/pdf,.pdf" hidden><input type="file" id="merge-input" accept="application/pdf,.pdf" hidden><input type="file" id="image-input" accept="image/png,image/jpeg" hidden><input type="file" id="project-input" accept=".json,application/json" hidden>
+
+<dialog id="info-dialog"><h2>Come funziona, in un minuto.</h2><ol><li><b>Apri il tuo PDF</b> o prova l’esempio.</li><li><b>Scegli uno strumento</b> e segui il suggerimento sopra la pagina.</li><li><b>Trascina le aggiunte</b>, poi scarica il PDF.</li></ol><p><b>Correggi il PDF:</b> trascina sul testo esistente e scrivi la sostituzione direttamente nel riquadro. È disponibile un font standard; non c’è OCR per le scansioni.</p><p><b>Quando scarichi il PDF, le pagine modificate diventano immagini</b>: il testo di quelle pagine non sarà selezionabile. Questo permette anche di eliminare il contenuto sotto le aree oscurate. Le pagine senza aggiunte conservano il contenuto originale.</p><p>Per riprendere le aggiunte e continuare a spostarle, usa <b>Salva progetto</b>. Il progetto contiene anche il PDF originale: conservalo per te, soprattutto se hai oscurato dei dati.</p><p>Una firma come immagine non è una firma digitale. Controlla sempre il PDF esportato prima di inviarlo.</p><button class="primary full" id="close-info">Ho capito, iniziamo</button></dialog>
+<dialog id="feedback-dialog" aria-labelledby="feedback-heading"><form id="feedback-form"><h2 id="feedback-heading">Aiutaci a migliorare E.Do.-Fa</h2><p>Hai un suggerimento o hai trovato un problema?</p><label for="feedback-kind">Cosa vuoi segnalarci?</label><select id="feedback-kind"><option>Suggerimento</option><option>Problema</option><option>Facilità d’uso</option></select><label for="feedback-title">Un titolo breve</label><input id="feedback-title" required minlength="5" maxlength="100" placeholder="Per esempio: rendere più semplice la firma"><label for="feedback-message">Raccontaci cosa miglioreresti</label><textarea id="feedback-message" required minlength="15" maxlength="1500" rows="5" placeholder="Descrivi la tua idea o i passaggi che hanno causato il problema."></textarea><p class="feedback-notice"><strong>Il feedback sarà pubblico su GitHub.</strong> Serve un account GitHub. Non inserire dati personali o PDF riservati: nessun documento viene allegato automaticamente.</p><p>Massimo <strong>due nuovi feedback accettati al mese per account</strong>. Gli ulteriori vengono chiusi automaticamente dopo l’invio. Potrai aggiungere dettagli ai feedback già accettati.</p><div class="dialog-actions"><button id="feedback-cancel" type="button">Torna all’app</button><button class="primary" type="submit">Continua su GitHub</button></div></form></dialog><div id="busy" hidden><div class="spinner"></div><strong id="busytext">Un momento…</strong></div>
+<div id="toast" role="alert" hidden></div>
+<script src="./ui-settings.js" defer></script><script src="./feedback.js" defer></script></body></html>

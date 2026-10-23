@@ -1,0 +1,37 @@
+E.Do.-Fa - Editor Documenti Facile
+
+COME APRIRE L'APP SU WINDOWS
+
+1. Fai clic destro sullo ZIP e scegli "Estrai tutto".
+2. Apri la cartella estratta.
+3. Fai doppio clic su AVVIA-EDOFA.cmd.
+
+Il browser si apre automaticamente: premi "Apri PDF".
+Puoi anche provare il documento di esempio.
+
+Lascia aperta la finestra di avvio mentre lavori.
+Puoi ridurla a icona. Chiudila quando hai finito.
+
+Serve Python 3.10 o successivo, gia presente sul tuo PC.
+Non vengono installate altre librerie.
+
+Per la versione locale NON aprire docs/index.html con il doppio clic.
+Apri sempre AVVIA-EDOFA.cmd.
+
+COME SCRIVERE
+
+Scegli "Scrivi testo", trascina un rettangolo sulla pagina e scrivi dentro.
+Fai clic fuori dal riquadro o premi "Fatto" per confermare.
+Per correggere un tuo testo, fai doppio clic su di esso.
+
+L'app elabora i PDF sul dispositivo. Nessun PDF viene caricato online.
+Con "Scarica PDF" salvi il risultato.
+Le pagine modificate vengono esportate come immagini.
+Con "Salva progetto" puoi riprendere le aggiunte spostabili.
+Il progetto contiene anche il PDF originale: conservalo per te.
+
+TESTO PIU GRANDE
+
+Premi "Testo piu grande" per ingrandire pulsanti e istruzioni.
+Lo stesso pulsante diventa "Dimensione normale" per tornare indietro.
+Per ingrandire il PDF usa invece i pulsanti + e - sotto la pagina.

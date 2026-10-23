@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" role="img" aria-label="E.Do.-Fa: un documento sorridente con una matita">
+  <rect width="80" height="80" rx="20" fill="#116a54"/>
+  <path d="M22 12h25l12 12v39a5 5 0 0 1-5 5H22a5 5 0 0 1-5-5V17a5 5 0 0 1 5-5Z" fill="#fffdf5"/>
+  <path d="M47 12v9a4 4 0 0 0 4 4h8" fill="#cce6d8"/>
+  <path d="M27 29h12" stroke="#87bba7" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="29" cy="41" r="2.5" fill="#24433a"/>
+  <circle cx="44" cy="41" r="2.5" fill="#24433a"/>
+  <path d="M29 49c4 5 11 5 15 0" fill="none" stroke="#24433a" stroke-width="2.8" stroke-linecap="round"/>
+  <g transform="rotate(35 60 53)">
+    <rect x="55" y="34" width="11" height="31" rx="2" fill="#efac4b" stroke="#fffdf5" stroke-width="2"/>
+    <path d="m55 63 5.5 10 5.5-10" fill="#ffdfaa" stroke="#fffdf5" stroke-width="2" stroke-linejoin="round"/>
+    <path d="m58.4 69 2.1 4 2.1-4" fill="#24433a"/>
+    <path d="M60.5 39v20" stroke="#ce8125" stroke-width="2" stroke-linecap="round"/>
+  </g>
+</svg>
