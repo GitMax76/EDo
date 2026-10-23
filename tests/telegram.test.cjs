@@ -21,6 +21,8 @@ test('setup page has no scripts, escapes notices and never embeds secrets',async
   const {setupPage}=await import('../cloudflare/worker.mjs');
   const page=setupPage('<script>alert(1)</script>');
   assert.equal(page.headers.get('Cache-Control'),'no-store');
+  // no-referrer makes native form POSTs send Origin:null, rejecting our own page.
+  assert.equal(page.headers.get('Referrer-Policy'),'same-origin');
   assert.match(page.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);
   const html=await page.text();
   assert.ok(!html.includes('<script>'));

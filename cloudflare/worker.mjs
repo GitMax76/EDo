@@ -103,7 +103,7 @@ export function setupPage(message = '', status = 200) {
   <p>Il codice non e la password. Il collegamento richiede entrambi e accetta solo chat private. Non modifica il limite mensile dei feedback.</p>
   <a href="https://gitmax76.github.io/EDo/">Torna a E.Do.-Fa</a></main></html>`;
   return new Response(html, {status, headers: {'Content-Type':'text/html; charset=utf-8',
-    'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff',
+    'Cache-Control':'no-store','Referrer-Policy':'same-origin','X-Content-Type-Options':'nosniff',
     'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"}});
 }
 async function validSetupKey(input, secret) {
