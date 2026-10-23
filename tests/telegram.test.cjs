@@ -70,3 +70,33 @@ test('duplicate notification claim never sends again',async()=>{
   await notifyTelegram({DB:mockDB(0),TELEGRAM_BOT_TOKEN:'123:EXAMPLE'},{id:'example'},async()=>{sent=true;});
   assert.equal(sent,false);
 });
+test('Telegram diagnostics distinguish missing, malformed and rejected tokens',async()=>{
+  const {telegramCall}=await import('../cloudflare/worker.mjs');
+  await assert.rejects(telegramCall('', 'getMe', {}), /Manca il segreto/);
+  await assert.rejects(telegramCall('not-a-token', 'getMe', {}), /Formato del token/);
+  await assert.rejects(telegramCall('123:EXAMPLE','getMe',{},async()=>({ok:false,status:401,
+    json:async()=>({ok:false,error_code:401,description:'sensitive server description'})})),
+    error => error.message.includes('(401)') && !error.message.includes('sensitive'));
+});
+test('token whitespace is trimmed without exposing it in errors',async()=>{
+  const {telegramCall}=await import('../cloudflare/worker.mjs');
+  const result=await telegramCall(' 123:EXAMPLE\n','getMe',{},async url=>{
+    assert.equal(url,'https://api.telegram.org/bot123:EXAMPLE/getMe');
+    return {ok:true,json:async()=>({ok:true,result:{username:'test_bot'}})};
+  });
+  assert.equal(result.username,'test_bot');
+  await assert.rejects(telegramCall('123:EXAMPLE','getMe',{},async()=>{throw Error('123:EXAMPLE');}),
+    error => !error.message.includes('EXAMPLE') && error.message.includes('Connessione'));
+});
+test('database setup errors report stage without leaking raw exceptions',async()=>{
+  const {default:worker}=await import('../cloudflare/worker.mjs');
+  const key='a-long-setup-password-for-test';
+  const url='https://example.workers.dev/telegram/check';
+  const response=await worker.fetch(new Request(url,{method:'POST',headers:{Origin:new URL(url).origin,
+    'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({key})}),
+    {TELEGRAM_SETUP_KEY:key,DB:{prepare(){return {};},async batch(){throw Error('private-database-details');}}});
+  const html=await response.text();
+  assert.equal(response.status,503);
+  assert.ok(html.includes('fase: database D1'));
+  assert.ok(!html.includes('private-database-details'));
+});

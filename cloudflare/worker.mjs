@@ -97,6 +97,9 @@ export function setupPage(message = '', status = 200) {
   <label for="key">Password di collegamento (TELEGRAM_SETUP_KEY)</label>
   <input id="key" name="key" type="password" required minlength="20" maxlength="200" autocomplete="off">
   <button>Collega la mia chat e invia la conferma</button></form>
+  <details><summary>Il collegamento non riesce? Verifica la configurazione</summary>
+  <form action="/telegram/check" method="post"><label for="checkkey">Password di collegamento</label>
+  <input id="checkkey" name="key" type="password" required minlength="20" maxlength="200" autocomplete="off"><button>Verifica database e bot</button></form></details>
   <details><summary>La chat e gia collegata? Invia un messaggio di prova</summary>
   <form action="/telegram/test" method="post"><label for="testkey">Password di collegamento</label>
   <input id="testkey" name="key" type="password" required minlength="20" maxlength="200" autocomplete="off"><button>Invia prova su Telegram</button></form></details>
@@ -115,15 +118,31 @@ async function validSetupKey(input, secret) {
   let different = 0; for (let i=0;i<a.length;i++) different |= a[i]^b[i];
   return different === 0;
 }
-async function telegramCall(token, method, data, send = fetch) {
-  if (!token || !/^[0-9]+:[A-Za-z0-9_-]+$/.test(token)) throw Error('Telegram non configurato: verifica TELEGRAM_BOT_TOKEN.');
+class TelegramError extends Error {}
+export async function telegramCall(token, method, data, send = fetch) {
+  token = typeof token === 'string' ? token.trim() : '';
+  if (!token) throw new TelegramError('Manca il segreto TELEGRAM_BOT_TOKEN in Production.');
+  if (!/^[0-9]+:[A-Za-z0-9_-]+$/.test(token)) throw new TelegramError('Formato del token non valido. In TELEGRAM_BOT_TOKEN inserisci solo la chiave di BotFather, senza virgolette o testo aggiuntivo.');
   // The token is used only server-side with the official Telegram API.
-  const res = await send('https://api.telegram.org/bot'+token+'/'+method, {
+  let res;
+  try {res = await send('https://api.telegram.org/bot'+token+'/'+method, {
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data),
     signal:AbortSignal.timeout(10000), redirect:'error'
-  });
-  const result = await res.json();
-  if (!res.ok || result.ok !== true) throw Error('Telegram non risponde. Verifica il token, avvia il bot e usa un bot dedicato senza webhook.');
+  });} catch {throw new TelegramError('Connessione a Telegram non riuscita o scaduta. Riprova tra poco.');}
+  let result;
+  try {result = await res.json();} catch {throw new TelegramError('Telegram ha restituito una risposta non valida. Riprova tra poco.');}
+  if (!res.ok || result.ok !== true) {
+    const code = result.error_code || res.status;
+    const messages = {
+      401:'Telegram rifiuta il token (401). Controlla che TELEGRAM_BOT_TOKEN contenga la chiave attuale del tuo bot.',
+      404:'Token o indirizzo del bot non valido (404). Controlla la chiave copiata da BotFather.',
+      409:'Il bot ha un webhook attivo oppure un altro programma sta leggendo i suoi messaggi (409). Usa un bot dedicato o scollega prima il servizio precedente.',
+      403:'Il bot non puo scrivere nella chat (403). Apri la chat, sblocca il bot e premi Avvia.',
+      429:'Telegram richiede una pausa (429). Attendi un minuto e riprova.',
+      400:'Telegram rifiuta la richiesta (400). Verifica la chat privata e premi Avvia sul bot.'
+    };
+    throw new TelegramError(messages[code] || 'Telegram ha rifiutato la richiesta. Usa Verifica database e bot.');
+  }
   return result.result;
 }
 async function configuredChat(env) {
@@ -151,9 +170,19 @@ async function setupTelegram(request, env) {
   if (!await validSetupKey(data.key, env.TELEGRAM_SETUP_KEY))
     return setupPage('Password non corretta oppure TELEGRAM_SETUP_KEY non configurato come segreto di almeno 20 caratteri.',403);
   if (!env.DB) return setupPage('Collega prima il database D1 con nome DB.',503);
+  let stage = 'database D1';
   try {
     await env.DB.batch(SCHEMA.map(sql => env.DB.prepare(sql)));
     let chat = await configuredChat(env);
+    if (new URL(request.url).pathname === '/telegram/check') {
+      stage = 'verifica Telegram';
+      const me = await telegramCall(env.TELEGRAM_BOT_TOKEN,'getMe',{});
+      const webhook = await telegramCall(env.TELEGRAM_BOT_TOKEN,'getWebhookInfo',{});
+      return setupPage('Database D1: OK. Token: OK. Bot: @'+me.username+'. '+
+        (webhook.url ? 'ATTENZIONE: webhook attivo. Il bot e gia usato da un altro servizio.' : 'Webhook: assente, OK. ')+
+        (chat ? 'Una chat e gia collegata: puoi inviare una prova.' : 'Invia il nuovo comando qui sotto a QUESTO bot e collega la chat.'));
+    }
+    stage = 'comunicazione Telegram';
     if (new URL(request.url).pathname === '/telegram/test') {
       if (!chat) return setupPage('Prima devi collegare la chat.',409);
       await telegramCall(env.TELEGRAM_BOT_TOKEN,'sendMessage',{chat_id:chat,
@@ -164,6 +193,7 @@ async function setupTelegram(request, env) {
     const updates = await telegramCall(env.TELEGRAM_BOT_TOKEN,'getUpdates',{limit:100,timeout:0,allowed_updates:['message']});
     chat = matchingPrivateChat(updates, data.command);
     if (!chat) return setupPage('Non trovo un messaggio valido nella tua chat privata. Copia il NUOVO codice qui sotto, invialo al bot e riprova entro 15 minuti.',400);
+    stage = 'salvataggio chat in D1';
     const saved = await env.DB.prepare('INSERT OR IGNORE INTO feedback_config(name,value) VALUES (?,?)')
       .bind('telegram_chat_id',chat).run();
     if (saved.meta?.changes !== 1) return setupPage('Una chat e stata gia collegata. Nessuna modifica effettuata.',409);
@@ -171,10 +201,12 @@ async function setupTelegram(request, env) {
       await telegramCall(env.TELEGRAM_BOT_TOKEN,'sendMessage',{chat_id:chat,
         text:'E.Do.-Fa collegato! I nuovi feedback arriveranno in questa chat privata. Nessun PDF viene trasmesso.',protect_content:true});
       return setupPage('Collegamento completato! Controlla la conferma su Telegram. Puoi chiudere questa pagina.');
-    } catch {return setupPage('Chat collegata, ma la conferma non e arrivata. Avvia il bot, poi usa Invia prova su Telegram.',502);}
+    } catch (error) {return setupPage('Chat collegata, ma la conferma non e arrivata. '+
+      (error instanceof TelegramError ? error.message : 'Usa Invia prova su Telegram.'),502);}
   } catch (error) {
     // Never expose an exception that might contain a token or database details.
-    return setupPage('Collegamento non riuscito. Verifica DB e TELEGRAM_BOT_TOKEN. Se il bot usa gia un webhook, usa un bot dedicato.',503);
+    return setupPage(error instanceof TelegramError ? error.message :
+      'Errore nella fase: '+stage+'. Verifica il binding DB e riprova. Nessun token viene mostrato in questa pagina.',503);
   }
 }
 export async function notifyTelegram(env, data, send = fetch) {
@@ -198,7 +230,7 @@ export default {
   async fetch(request, env, ctx) {
     const path = new URL(request.url).pathname;
     const cors = request.headers.get('Origin') === ORIGIN;
-    if (['/telegram','/telegram/connect','/telegram/test'].includes(path)) return setupTelegram(request,env);
+    if (['/telegram','/telegram/connect','/telegram/test','/telegram/check'].includes(path)) return setupTelegram(request,env);
     if (request.method === 'GET' && (path === '/' || path === '/health')) {
       try {
         if (!env.DB) throw new Error('missing binding');
