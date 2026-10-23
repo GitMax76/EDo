@@ -36,13 +36,13 @@ Non sono inclusi OCR, reimpaginazione automatica, firma digitale certificata o m
 
 ## Suggerimenti e feedback
 
-Il comando nell'app prepara una segnalazione che il visitatore può rivedere e inviare su GitHub. **È necessario un account GitHub e il feedback è pubblico.** Nessun PDF viene allegato automaticamente. Non includere dati personali o documenti riservati.
+Il modulo dell'app invia messaggi privati al Worker Cloudflare `edofa-feedback.massi-sabato.workers.dev`. Non serve un account GitHub. Si trasmettono solo tipo, titolo, descrizione e identificatore casuale della richiesta, senza PDF o nomi dei documenti.
 
-Sono accettate al massimo **due nuove segnalazioni al mese per account GitHub**, secondo il calendario **Europe/Rome**. Il workflow `.github/workflows/feedback.yml` controlla tutte le nuove issue e le riaperture: le segnalazioni oltre il limite vengono chiuse automaticamente **dopo la creazione**, non bloccate prima dell'invio.
+Il servizio limita a **due feedback per indirizzo IP e mese di calendario Europe/Rome**. Le persone sulla stessa rete possono condividere il limite; VPN e indirizzi dinamici impediscono un'identificazione certa per persona. Nel database si conserva un identificatore mensile della rete ottenuto con HMAC, senza IP in chiaro. Cloudflare tratta comunque le richieste secondo le proprie impostazioni e condizioni.
 
-Il controllo considera anche le issue già chiuse; chiudere una segnalazione non azzera la quota. Le pull request non contano. Il limite riguarda gli account, non le persone o le macchine: non vengono raccolti IP, MAC o impronte del dispositivo dall'app. Gli account distinti hanno quote distinte. Il mese viene determinato dalla data di creazione dell'issue.
+I messaggi sono consultabili dal proprietario in **Cloudflare > D1 > edofa-feedback-db > Studio > feedback**. Non vengono pubblicati su GitHub e non vengono inviate email. Configurazione, limiti e lettura dei messaggi: [cloudflare/README.md](cloudflare/README.md).
 
-## Pubblicazione e verifiche
+La gestione delle issue GitHub resta separata: `.github/workflows/feedback.yml` continua a limitare le issue a due per account al mese, chiudendo quelle in eccesso dopo la creazione. Il modulo pubblico non crea issue.
 
 Il workflow `.github/workflows/pages.yml` verifica il JavaScript, esegue i test del filtro e pubblica solo la cartella `docs`. In **Settings → Pages → Build and deployment**, la sorgente deve essere **GitHub Actions**.
 
@@ -57,6 +57,6 @@ I controlli coprono la quota mensile, il cambio di mese italiano, altri account,
 
 ## Librerie e privacy
 
-PDF.js 5.4.624 (Apache-2.0) e PDF-LIB 1.17.1 (MIT) sono incluse localmente, con le relative licenze in `docs/vendor`. Non vengono caricate da CDN durante l'uso. Non ci sono analytics dell'app. GitHub gestisce hosting, autenticazione e feedback secondo le proprie condizioni e informative.
+PDF.js 5.4.624 (Apache-2.0) e PDF-LIB 1.17.1 (MIT) sono incluse localmente, con le relative licenze in `docs/vendor`. Non vengono caricate da CDN durante l'uso. Non ci sono analytics dell'app. GitHub gestisce hosting e issue; Cloudflare gestisce il servizio di feedback secondo le rispettive condizioni e informative.
 
 Non caricare PDF personali o progetti JSON in questa repository pubblica.

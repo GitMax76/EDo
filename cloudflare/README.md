@@ -6,7 +6,7 @@
 2. Aggiungere un database D1 `edofa-feedback-db` con binding **DB**.
 3. In **Edit code**, sostituire l'intero script con il contenuto di `worker.mjs` e premere **Deploy**.
 4. Aprire `https://edofa-feedback.massi-sabato.workers.dev/health`: deve rispondere con `"ready":true`.
-5. Collegare il modulo dell'app solo dopo la verifica del servizio. Il frontend attuale continua a usare GitHub finche questa integrazione non viene attivata.
+5. Collegare il modulo dell'app solo dopo la verifica del servizio. Il frontend pubblicato invia il modulo al percorso `/feedback` di questo Worker.
 
 Le tabelle si creano automaticamente al primo feedback valido. Il controllo health verifica il binding D1 senza inserire un feedback.
 
