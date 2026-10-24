@@ -88,22 +88,22 @@ export function setupPage(message = '', status = 200) {
   .notice{padding:14px;background:#fff3da;border-radius:10px}a{color:#116a54}</style>
   <main><h1>Collega la tua chat Telegram</h1>
   ${message ? '<p class="notice" role="status">'+escapeHTML(message)+'</p>' : ''}
-  <p>Questa pagina serve al proprietario di E.Do.-Fa, una sola volta. Non inserire il token del bot qui.</p>
-  <ol><li>In Cloudflare, nelle impostazioni del Worker, aggiungi un segreto <b>TELEGRAM_SETUP_KEY</b>: scegli una password riservata di almeno 20 caratteri. Solo Production, tipo Secret.</li>
+  <p>Configurazione del proprietario. Versione 3: accesso con il token di BotFather. Non serve creare un'altra password.</p>
+  <ol><li>Tieni a portata di mano il token ricevuto da BotFather, gia salvato nel segreto TELEGRAM_BOT_TOKEN del tuo Worker.</li>
   <li>Apri la chat privata con il tuo bot e inviagli questo messaggio (puoi selezionarlo e copiarlo):<code>${command}</code></li>
-  <li>Entro 15 minuti, inserisci qui la password che hai salvato come TELEGRAM_SETUP_KEY e premi il pulsante.</li></ol>
-  <form action="/telegram/connect" method="post">
+  <li>Entro 15 minuti, incolla qui sotto il token di BotFather e premi il pulsante. Viene inviato solo a questo Worker Cloudflare tramite HTTPS, mai nell'indirizzo della pagina.</li></ol>
+  <form action="/telegram/connect" method="post"><input type="hidden" name="auth" value="token">
   <input type="hidden" name="command" value="${command}">
-  <label for="key">Password di collegamento (TELEGRAM_SETUP_KEY)</label>
+  <label for="key">Token del bot ricevuto da BotFather</label>
   <input id="key" name="key" type="password" required minlength="20" maxlength="200" autocomplete="off">
   <button>Collega la mia chat e invia la conferma</button></form>
   <details><summary>Il collegamento non riesce? Verifica la configurazione</summary>
-  <form action="/telegram/check" method="post"><label for="checkkey">Password di collegamento</label>
+  <form action="/telegram/check" method="post"><input type="hidden" name="auth" value="token"><label for="checkkey">Token del bot ricevuto da BotFather</label>
   <input id="checkkey" name="key" type="password" required minlength="20" maxlength="200" autocomplete="off"><button>Verifica database e bot</button></form></details>
   <details><summary>La chat e gia collegata? Invia un messaggio di prova</summary>
-  <form action="/telegram/test" method="post"><label for="testkey">Password di collegamento</label>
+  <form action="/telegram/test" method="post"><input type="hidden" name="auth" value="token"><label for="testkey">Token del bot ricevuto da BotFather</label>
   <input id="testkey" name="key" type="password" required minlength="20" maxlength="200" autocomplete="off"><button>Invia prova su Telegram</button></form></details>
-  <p>Il codice non e la password. Il collegamento richiede entrambi e accetta solo chat private. Non modifica il limite mensile dei feedback.</p>
+  <p>Il comando /collega non e il token. Il collegamento richiede entrambi e accetta solo chat private. Non modifica il limite mensile dei feedback.</p>
   <a href="https://gitmax76.github.io/EDo/">Torna a E.Do.-Fa</a></main></html>`;
   return new Response(html, {status, headers: {'Content-Type':'text/html; charset=utf-8',
     'Cache-Control':'no-store','Referrer-Policy':'same-origin','X-Content-Type-Options':'nosniff',
@@ -117,6 +117,17 @@ async function validSetupKey(input, secret) {
   const b = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(secret)));
   let different = 0; for (let i=0;i<a.length;i++) different |= a[i]^b[i];
   return different === 0;
+}
+export async function authorizeTelegramSetup(data, env) {
+  const stored = typeof env.TELEGRAM_BOT_TOKEN === 'string' ? env.TELEGRAM_BOT_TOKEN.trim() : '';
+  const supplied = typeof data.key === 'string' ? data.key.trim() : '';
+  // Compatibility for old forms only; the new page uses token authentication.
+  if (data.auth !== 'token' && await validSetupKey(data.key, env.TELEGRAM_SETUP_KEY)) return {ok:true};
+  if (!stored) return {ok:false,message:'In questo Worker manca TELEGRAM_BOT_TOKEN. Aggiungi quel segreto in Production con il token di BotFather.'};
+  if (!/^[0-9]+:[A-Za-z0-9_-]+$/.test(stored)) return {ok:false,message:'Il segreto TELEGRAM_BOT_TOKEN contiene un valore con formato errato. Deve contenere solo il token di BotFather, senza virgolette.'};
+  if (!/^[0-9]+:[A-Za-z0-9_-]+$/.test(supplied)) return {ok:false,message:'Qui va il token di BotFather (numeri, due punti e lettere), non la password TELEGRAM_SETUP_KEY.'};
+  if (!await validSetupKey(supplied,stored)) return {ok:false,message:'Il token incollato e diverso da quello salvato in TELEGRAM_BOT_TOKEN su Cloudflare. Copia la stessa chiave attuale di BotFather nei due punti.'};
+  return {ok:true};
 }
 class TelegramError extends Error {}
 export async function telegramCall(token, method, data, send = fetch) {
@@ -167,8 +178,8 @@ async function setupTelegram(request, env) {
   if (request.headers.get('Origin') !== new URL(request.url).origin) return setupPage('Origine non consentita.',403);
   if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return setupPage('Formato non valido.',415);
   let data; try {data = await readBody(request,true);} catch {return setupPage('Richiesta non valida.',400);}
-  if (!await validSetupKey(data.key, env.TELEGRAM_SETUP_KEY))
-    return setupPage('Password non corretta oppure TELEGRAM_SETUP_KEY non configurato come segreto di almeno 20 caratteri.',403);
+  const auth = await authorizeTelegramSetup(data,env);
+  if (!auth.ok) return setupPage(auth.message,403);
   if (!env.DB) return setupPage('Collega prima il database D1 con nome DB.',503);
   let stage = 'database D1';
   try {

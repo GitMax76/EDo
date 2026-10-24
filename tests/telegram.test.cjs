@@ -100,3 +100,21 @@ test('database setup errors report stage without leaking raw exceptions',async()
   assert.ok(html.includes('fase: database D1'));
   assert.ok(!html.includes('private-database-details'));
 });
+test('new setup uses the existing bot token and needs no extra password',async()=>{
+  const {authorizeTelegramSetup}=await import('../cloudflare/worker.mjs');
+  const token='123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ_123456789';
+  assert.equal((await authorizeTelegramSetup({auth:'token',key:token},{TELEGRAM_BOT_TOKEN:token})).ok,true);
+  assert.equal((await authorizeTelegramSetup({auth:'token',key:' '+token+'\n'},{TELEGRAM_BOT_TOKEN:' '+token+' '})).ok,true);
+  const other=await authorizeTelegramSetup({auth:'token',key:'987654321:ABCDEFGHIJKLMNOPQRSTUVWXYZ_123456789'},
+    {TELEGRAM_BOT_TOKEN:token});
+  assert.equal(other.ok,false);
+  assert.match(other.message,/diverso/);
+  assert.ok(!other.message.includes(token));
+});
+test('new setup identifies missing token and password used in the wrong field',async()=>{
+  const {authorizeTelegramSetup}=await import('../cloudflare/worker.mjs');
+  assert.match((await authorizeTelegramSetup({auth:'token',key:'anything'},{})).message,/manca TELEGRAM_BOT_TOKEN/);
+  const token='123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ_123456789';
+  assert.match((await authorizeTelegramSetup({auth:'token',key:'a-password-with-20-characters'},
+    {TELEGRAM_BOT_TOKEN:token})).message,/non la password/);
+});

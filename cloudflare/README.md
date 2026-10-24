@@ -32,18 +32,22 @@ Non esistono endpoint pubblici per leggere i messaggi. Non vengono inviate notif
 
 Il servizio non pubblica una pagina amministrativa. Conservare i feedback solo per il tempo necessario e aggiornare il testo informativo del modulo prima di attivarlo.
 
-## Collegamento Telegram dal browser
+## Collegamento Telegram dal browser (versione 3)
 
 1. Creare un bot dedicato con BotFather e avviare la sua chat privata.
-2. In Settings > Variables and Secrets del Worker, salvare `TELEGRAM_BOT_TOKEN` come Secret, solo Production.
-3. Nello stesso punto aggiungere `TELEGRAM_SETUP_KEY` come Secret: password casuale riservata da 20 a 200 caratteri. Non usare il token come password. Non pubblicare questi valori.
-4. Sostituire lo script del Worker con la versione aggiornata di `worker.mjs` e fare Deploy. I segreti rimangono configurati.
-5. Aprire `https://edofa-feedback.massi-sabato.workers.dev/telegram`. Copiare il comando `/collega ...` mostrato e inviarlo nella chat privata con il proprio bot.
-6. Inserire la password TELEGRAM_SETUP_KEY nella pagina e premere **Collega la mia chat e invia la conferma**, entro 15 minuti dal messaggio.
-7. Il bot invia una conferma nella chat scelta. Il numero della chat rimane privato in D1, tabella feedback_config. Non occorre recuperare manualmente il Chat ID o installare software sul PC.
+2. Salvare il suo token nel segreto `TELEGRAM_BOT_TOKEN` del Worker, in Production.
+3. Sostituire lo script del Worker con `worker.mjs` e fare Deploy.
+4. Aprire `https://edofa-feedback.massi-sabato.workers.dev/telegram`: deve comparire **Versione 3: accesso con il token di BotFather**.
+5. Inviare nella chat privata del bot il comando `/collega ...` mostrato nella pagina.
+6. Incollare il token di BotFather nel campo mascherato e premere il pulsante, entro 15 minuti dal messaggio. Il token viene inviato con POST soltanto al proprio Worker HTTPS, confrontato con il segreto gia configurato e non viene restituito nella pagina, scritto nei log dell'app o incluso nell'URL.
+7. Attendere la conferma nella propria chat. Il Chat ID resta privato in D1, tabella feedback_config.
 
-La pagina rifiuta origini esterne e richiede la password anche per il test di invio. Non collega il primo /start e non sostituisce una chat gia collegata. Se ci sono errori, il codice mostrato nella nuova pagina cambia: inviare al bot il NUOVO comando prima di riprovare. Un bot con webhook gia configurato non puo essere letto con getUpdates: usare un bot dedicato.
+Non serve una password aggiuntiva TELEGRAM_SETUP_KEY. I vecchi moduli restano compatibili con quel segreto, ma le nuove pagine usano solo il token. Non condividere token, password o screenshot dei valori. Il codice pubblicato non contiene credenziali.
 
-Solo i feedback NUOVI ricevuti dopo il collegamento vengono notificati. Titolo, descrizione e tipo passano anche da Telegram; IP e codice di rete non vengono inoltrati. Nessun recupero automatico dei messaggi storici. L'invio usa il tempo di esecuzione in background del Worker, senza rallentare la conferma del salvataggio.
+La verifica **Verifica database e bot** distingue database, token non presente, token errato e webhook. Non modifica la chat e non invia notifiche. Il bot deve essere dedicato e senza webhook di altri servizi.
 
-Il database resta la fonte principale: in caso di problemi Telegram il feedback resta salvato. Lo stato degli invii e in `telegram_delivery` (`in_corso`, `inviato`, `errore`). Non e prevista una ritrasmissione automatica; in caso di errore leggere il messaggio in D1. La funzione **Invia prova su Telegram** non consuma la quota dei feedback.
+Il collegamento richiede sia il token configurato sia il comando recente nella chat privata; non collega il primo /start e non sostituisce una chat gia associata. Dopo un errore il codice mostrato cambia: inviare il NUOVO comando prima di riprovare.
+
+Solo i feedback NUOVI vengono notificati. Titolo, descrizione e tipo passano anche da Telegram; IP e codice di rete non vengono inoltrati. Nessun recupero automatico dei messaggi storici.
+
+In caso di errore Telegram il feedback resta nel database. Lo stato degli invii e in `telegram_delivery` (`in_corso`, `inviato`, `errore`). Non e prevista ritrasmissione automatica: leggere eventuali messaggi mancanti in D1. **Invia prova su Telegram** non consuma la quota dei feedback.
