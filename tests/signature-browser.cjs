@@ -37,8 +37,8 @@ async function run(engine, mobile=false) {
     for(const [i,value] of ['20','20','20','25'].entries()) { await page.locator(`[data-margin="${i}"]`).fill(value); await page.locator(`[data-margin="${i}"]`).dispatchEvent('change'); }
     await page.waitForFunction(()=>!document.querySelector('[data-action="insert"]').disabled);
     await page.waitForTimeout(100);
-    const before=await page.evaluate(()=>{const c=document.querySelector('.signature-preview');const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;return {w:c.width,h:c.height,alpha:d[3],ink:d[(25*c.width+15)*4+3]};});
-    assert.equal(before.alpha,0,'paper transparent');assert.ok(before.ink>200,'foreign mark present before erasing');
+    const before=await page.evaluate(()=>{const c=document.querySelector('.signature-preview');const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let total=0,first=null;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++)if(d[(y*c.width+x)*4+3]>200){total++;first??={x,y};}return {w:c.width,h:c.height,alpha:d[3],ink:d[(25*c.width+15)*4+3],total,first,margins:[...document.querySelectorAll('[data-margin]')].map(e=>e.value)};});
+    assert.equal(before.alpha,0,'paper transparent '+JSON.stringify(before));assert.ok(before.ink>200,'foreign mark present before erasing '+JSON.stringify(before));
     await page.click('[data-action="eraser"]');
     const pb=await page.locator('.signature-preview').boundingBox();
     const ex=pb.x+pb.width*16/before.w,ey=pb.y+pb.height*26/before.h;
