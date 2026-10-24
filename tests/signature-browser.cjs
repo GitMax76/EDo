@@ -36,14 +36,14 @@ async function run(engine, mobile=false) {
     await page.locator('summary').click();
     for(const [i,value] of ['20','20','20','25'].entries()) { await page.locator(`[data-margin="${i}"]`).fill(value); await page.locator(`[data-margin="${i}"]`).dispatchEvent('change'); }
     await page.waitForFunction(()=>!document.querySelector('[data-action="insert"]').disabled);
-    await page.waitForTimeout(100);
+    await page.waitForFunction(()=>{const c=document.querySelector('.signature-preview');return c.width===480&&c.height>=219&&c.getContext('2d').getImageData(15,25,1,1).data[3]>200;});
     const before=await page.evaluate(()=>{const c=document.querySelector('.signature-preview');const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let total=0,first=null;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++)if(d[(y*c.width+x)*4+3]>200){total++;first??={x,y};}return {w:c.width,h:c.height,alpha:d[3],ink:d[(25*c.width+15)*4+3],total,first,margins:[...document.querySelectorAll('[data-margin]')].map(e=>e.value)};});
     assert.equal(before.alpha,0,'paper transparent '+JSON.stringify(before));assert.ok(before.ink>200,'foreign mark present before erasing '+JSON.stringify(before));
     await page.click('[data-action="eraser"]');
     const pb=await page.locator('.signature-preview').boundingBox();
     const ex=pb.x+pb.width*16/before.w,ey=pb.y+pb.height*26/before.h;
     if(mobile) await page.touchscreen.tap(ex,ey); else await page.mouse.click(ex,ey);
-    await page.waitForTimeout(100);
+    await page.waitForFunction(()=>document.querySelector('.signature-preview').getContext('2d').getImageData(15,25,1,1).data[3]===0);
     const after=await page.evaluate(()=>{const c=document.querySelector('.signature-preview');return c.getContext('2d').getImageData(15,25,1,1).data[3];});assert.equal(after,0,'eraser removes residue');
     await page.click('[data-action="insert"]');await page.waitForFunction(()=>window.done);
     const png=await page.evaluate(async()=>{const i=new Image();i.src=window.value;await i.decode();const c=document.createElement('canvas');c.width=i.width;c.height=i.height;const ctx=c.getContext('2d');ctx.drawImage(i,0,0);const d=ctx.getImageData(0,0,c.width,c.height).data;let ink=0,border=0;for(let y=0;y<c.height;y++)for(let x=0;x<c.width;x++){const a=d[(y*c.width+x)*4+3];if(a){ink++;if(x===0||y===0||x===c.width-1||y===c.height-1)border++;}}return {width:i.width,height:i.height,ink,border};});
