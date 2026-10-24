@@ -9,6 +9,19 @@ report=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(report)
 
 class WeeklyReportTests(unittest.TestCase):
+    def test_wrong_bot_stops_before_reading_messages(self):
+        with patch.object(report,'telegram',return_value={'username':'OtherBot'}) as api:
+            with self.assertRaisesRegex(RuntimeError,'bot diverso'):
+                report.verify_pairing_bot('private')
+            self.assertEqual(api.call_count,1)
+
+    def test_webhook_is_detected_without_deleting_or_exposing_it(self):
+        with patch.object(report,'telegram',side_effect=[{'username':'Edo_feedback_bot'},{'url':'https://private.invalid/secret'}]) as api:
+            with self.assertRaisesRegex(RuntimeError,'webhook attivo') as error:
+                report.verify_pairing_bot('private')
+            self.assertNotIn('private.invalid',str(error.exception))
+            self.assertEqual([call.args[1] for call in api.call_args_list],['getMe','getWebhookInfo'])
+
     def test_previous_calendar_week_and_dst(self):
         for instant,hours in [('2026-03-30T07:00:00+00:00',167),('2026-10-26T08:00:00+00:00',169)]:
             period,begin,end,start,finish=report.week_window(dt.datetime.fromisoformat(instant))

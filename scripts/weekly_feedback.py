@@ -94,6 +94,15 @@ def read_pairing_updates(token):
         offset=max(item['update_id'] for item in page)+1
     raise RuntimeError('Ci sono oltre 1000 aggiornamenti in attesa. Serve svuotare il backlog del bot prima del collegamento.')
 
+def verify_pairing_bot(token):
+    identity = telegram(token, 'getMe', {})
+    if str(identity.get('username', '')).lower() != 'edo_feedback_bot':
+        raise RuntimeError('Il token GitHub e valido ma appartiene a un bot diverso da @Edo_feedback_bot. Nessuna modifica effettuata.')
+    webhook = telegram(token, 'getWebhookInfo', {})
+    if webhook.get('url'):
+        raise RuntimeError('Il bot corretto ha un webhook attivo: i messaggi vengono consegnati a un altro servizio. Nessun webhook cancellato automaticamente.')
+    print('Diagnosi: token del bot @Edo_feedback_bot confermato; nessun webhook attivo.')
+
 def report_text(rows, start, end):
     title = 'E.Do.-Fa | Feedback settimanali'
     period = start.strftime('%d/%m/%Y')+' - '+(end-dt.timedelta(days=1)).strftime('%d/%m/%Y')
@@ -120,7 +129,7 @@ def main():
         return
     token = token_from(raw)
     if os.environ.get('REPORT_MODE', 'report') == 'collega':
-        telegram(token, 'getMe', {})  # Verify runner -> Telegram before changing configuration.
+        verify_pairing_bot(token)
         updates = read_pairing_updates(token)
         chat = matching_chat(updates, os.environ.get('PAIRING_CODE', '').strip())
         state = worker(token, 'status')
