@@ -59,3 +59,27 @@ Aprire `https://edofa-feedback.massi-sabato.workers.dev/admin` e usare come chia
 Il login crea una sessione firmata HMAC con scadenza di un'ora, in cookie Secure, HttpOnly, SameSite=Strict. Le risposte non vengono memorizzate in cache. La pagina mostra 50 feedback per pagina, dal piu recente, con aggiornamento manuale e uscita. Nessun dato e leggibile senza sessione valida. I contenuti dei feedback vengono trattati come testo, mai come HTML.
 
 Questa pagina sostituisce i tentativi di notifiche Telegram: gli invii automatici sono ora disattivati per impostazione predefinita. L'eventuale riattivazione richiede la variabile ENABLE_TELEGRAM=true e una chat gia configurata. La raccolta dei feedback e la pagina privata non ne dipendono.
+
+## Report settimanale via GitHub Actions
+
+Workflow: `.github/workflows/weekly-feedback.yml`, lunedi alle 09:00 **Europe/Rome**, con gestione automatica dell'ora legale. GitHub puo ritardare l'esecuzione e, nelle repository pubbliche inattive per 60 giorni, puo disattivare i workflow pianificati. La pagina privata resta disponibile.
+
+### Attivazione
+
+1. Aggiornare il Worker con `worker.mjs`. Il report usa endpoint `/reports/*` protetti, senza chiamate Cloudflare -> Telegram.
+2. In GitHub **Settings > Secrets and variables > Actions > New repository secret**, salvare **TELEGRAM_BOT_TOKEN** con la stessa chiave gia salvata in Cloudflare. Non inserirla nei file, nelle variabili pubbliche o nei campi Run workflow.
+3. Nella chat privata del proprio bot inviare `/edofa-report CODICE`, dove CODICE e una stringa nuova di almeno 16 caratteri, solo lettere, numeri e trattini. Per esempio una UUID. Il messaggio vale 30 minuti.
+4. In **Actions > Report settimanale feedback su Telegram > Run workflow**, scegliere **main**, modalita **collega**, inserire solo il CODICE nel campo **pairing_code**, e avviare.
+5. Il runner verifica Telegram, legge il comando della chat privata, invia una conferma e salva la destinazione nel database. La prova non legge i feedback e non consuma la quota mensile. Il report e pronto solo se il workflow conclude con successo e la conferma arriva nella propria chat.
+
+Per eseguire una prova completa del riepilogo, usare Run workflow con modalita **report**. Questo invia i feedback della settimana precedente e segna quella settimana come inviata, per evitare duplicati.
+
+### Contenuto e riservatezza
+
+Il lunedi viene inviata la settimana di calendario precedente, da lunedi 00:00 a lunedi 00:00 ora italiana. Il messaggio indica il numero di feedback e il periodo; un allegato TXT UTF-8 contiene tutti i titoli e i messaggi completi, senza IP o codici di rete. Se non ci sono feedback viene inviato un messaggio esplicito. I report molto grandi si interrompono con un errore, senza troncare il contenuto.
+
+Il report passa dal runner GitHub e viene consegnato a Telegram. Nessun contenuto dei feedback viene scritto nei log, negli artifact o nel riepilogo pubblico del job. Non vengono allegati PDF dell'editor. Il token viene passato come segreto e in un header HTTPS al Worker; non compare nell'URL del Worker.
+
+Il database registra le settimane inviate in `weekly_report_runs`. Una nuova esecuzione della stessa settimana non genera un duplicato. Un tentativo interrotto dopo la prenotazione richiede verifica manuale della chat prima di sbloccare quella settimana: non viene riprovato automaticamente per evitare invii doppi. Le settimane successive restano indipendenti.
+
+Le notifiche immediate dal Worker restano disattivate. La raccolta feedback e la pagina privata funzionano anche se GitHub Actions o Telegram sono temporaneamente indisponibili.

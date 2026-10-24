@@ -28,6 +28,7 @@ jobs:
           node --check docs/feedback.js
           node --check docs/ui-settings.js
           node --test tests/*.test.cjs
+          python3 -m unittest discover -s tests -p 'test_weekly_report.py'
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

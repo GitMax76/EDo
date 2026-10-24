@@ -9,7 +9,8 @@ export const SCHEMA = [
     network_key TEXT NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
     message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'nuovo')`,
   `CREATE INDEX IF NOT EXISTS feedback_quota ON feedback(month, network_key)`,
-  `CREATE TABLE IF NOT EXISTS telegram_delivery (feedback_id TEXT PRIMARY KEY, state TEXT NOT NULL)`
+  `CREATE TABLE IF NOT EXISTS telegram_delivery (feedback_id TEXT PRIMARY KEY, state TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS weekly_report_runs (period TEXT PRIMARY KEY, state TEXT NOT NULL, created_at TEXT NOT NULL)`
 ];
 // One atomic statement: concurrent requests cannot race past the quota.
 export const INSERT_FEEDBACK = `INSERT OR IGNORE INTO feedback
@@ -342,10 +343,57 @@ async function adminInbox(request,env) {
     return adminResponse(inboxContent(list.results||[],total?.total||0,pageNumber));
   } catch {return adminResponse('<p class="notice">Lettura del database non riuscita. Riprova tra poco.</p><a class="button" href="/admin">Riprova</a>',503);}
 }
+async function weeklyReportAPI(request,env) {
+  const key=normalizeBotToken(request.headers.get('Authorization')?.replace(/^Bearer /,''));
+  const stored=normalizeBotToken(env.TELEGRAM_BOT_TOKEN);
+  if(!key||!stored||!await validSetupKey(key,stored))return reply({error:'Accesso non consentito.'},401);
+  if(request.method!=='POST')return reply({error:'Metodo non consentito.'},405);
+  if(!request.headers.get('Content-Type')?.startsWith('application/json'))return reply({error:'Formato non valido.'},415);
+  let data;try{data=await readBody(request);}catch{return reply({error:'Richiesta non valida.'},400);}
+  if(!env.DB)return reply({error:'Database non collegato.'},503);
+  try{
+    await env.DB.batch(SCHEMA.map(sql=>env.DB.prepare(sql)));
+    const path=new URL(request.url).pathname;
+    if(path==='/reports/status'){
+      const row=await env.DB.prepare('SELECT value FROM feedback_config WHERE name = ?').bind('weekly_telegram_chat_id').first();
+      return reply({enabled:!!row?.value,chat_id:row?.value||null});
+    }
+    if(path==='/reports/configure'){
+      const chat=String(data.chat_id||'');
+      if(!/^[1-9][0-9]{0,15}$/.test(chat))return reply({error:'Serve una chat privata.'},400);
+      await env.DB.prepare('INSERT OR IGNORE INTO feedback_config(name,value) VALUES (?,?)').bind('weekly_telegram_chat_id',chat).run();
+      const row=await env.DB.prepare('SELECT value FROM feedback_config WHERE name = ?').bind('weekly_telegram_chat_id').first();
+      if(row?.value!==chat)return reply({error:'Il report e gia collegato a una chat diversa.'},409);
+      return reply({ok:true});
+    }
+    if(path==='/reports/list'){
+      const from=Date.parse(data.from),to=Date.parse(data.to);
+      if(!Number.isFinite(from)||!Number.isFinite(to)||to<=from||to-from>8*86400000)return reply({error:'Periodo non valido.'},400);
+      const offset=Number(data.offset||0);
+      if(!Number.isSafeInteger(offset)||offset<0||offset>50000)return reply({error:'Pagina non valida.'},400);
+      const result=await env.DB.prepare('SELECT id,created_at,kind,title,message FROM feedback WHERE created_at >= ? AND created_at < ? ORDER BY created_at,id LIMIT 200 OFFSET ?')
+        .bind(new Date(from).toISOString(),new Date(to).toISOString(),offset).all();
+      return reply({rows:result.results||[]});
+    }
+    if(['/reports/claim','/reports/complete'].includes(path)){
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(data.period||''))return reply({error:'Periodo non valido.'},400);
+      if(path==='/reports/complete'){
+        const done=await env.DB.prepare("UPDATE weekly_report_runs SET state = 'inviato' WHERE period = ? AND state = 'in_corso'").bind(data.period).run();
+        return reply({ok:done.meta?.changes===1});
+      }
+      const claim=await env.DB.prepare('INSERT OR IGNORE INTO weekly_report_runs(period,state,created_at) VALUES (?,?,?)')
+        .bind(data.period,'in_corso',new Date().toISOString()).run();
+      const state=await env.DB.prepare('SELECT state FROM weekly_report_runs WHERE period = ?').bind(data.period).first();
+      return reply({claimed:claim.meta?.changes===1,state:state?.state});
+    }
+    return reply({error:'Pagina non trovata.'},404);
+  }catch{return reply({error:'Operazione report non riuscita.'},503);}
+}
 export default {
   async fetch(request, env, ctx) {
     const path = new URL(request.url).pathname;
     const cors = request.headers.get('Origin') === ORIGIN;
+    if (path.startsWith('/reports/')) return weeklyReportAPI(request,env);
     if (['/admin','/admin/login','/admin/logout'].includes(path)) return adminInbox(request,env);
     if (['/telegram','/telegram/connect','/telegram/test','/telegram/check'].includes(path)) return setupTelegram(request,env);
     if (request.method === 'GET' && (path === '/' || path === '/health')) {

@@ -1,0 +1,36 @@
+name: Report settimanale feedback su Telegram
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+      timezone: Europe/Rome
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Collega e prova il bot, oppure invia il report'
+        type: choice
+        options: [collega, report]
+        default: collega
+      pairing_code:
+        description: 'Per collega: il codice di almeno 16 caratteri inviato al bot con /edofa-report CODICE'
+        type: string
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: weekly-feedback
+  cancel-in-progress: false
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Collega o invia il report privato
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          REPORT_MODE: ${{ inputs.mode || 'report' }}
+          PAIRING_CODE: ${{ inputs.pairing_code }}
+        run: python scripts/weekly_feedback.py
