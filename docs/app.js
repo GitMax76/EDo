@@ -238,7 +238,7 @@ async function pointerDown(event) {
     }
     inspector();return;
   }
-  if(S.tool==='image') {imagePoint=pt;$('image-input').click();}
+  if(S.tool==='image') {imagePoint=pt;}
   else{S.drag={kind:'area',start:pt,changed:false,pointer:event.pointerId};$('paper').setPointerCapture(event.pointerId);}
 }
 function pointerMove(event){
@@ -404,6 +404,9 @@ $('clean-signature').onclick=async()=>{
   e.w=w;e.h=w*img.height/img.width;drawElements();listPages();status('Firma pulita. Puoi annullare la modifica.');
 };
 $('paper').addEventListener('pointerdown',event=>{pointerDown(event).catch(e=>toast(e.message));});
+// Open the system picker from the completed tap/click, where browsers grant
+// user activation (including touch browsers), rather than from pointerdown.
+$('paper').addEventListener('click',event=>{if(S.tool!=='image'||!page()||event.target.closest('#inline-editor'))return;const pt=coordinates(event);if(pt.x<0||pt.y<0||pt.x>S.width||pt.y>S.height)return;imagePoint=pt;$('image-input').click();});
 function cancelDrag(){const drag=S.drag;S.drag=null;$('selection').hidden=true;if(drag&&$('paper').hasPointerCapture(drag.pointer))$('paper').releasePointerCapture(drag.pointer);if(page())drawElements();}
 $('paper').addEventListener('pointermove',pointerMove);$('paper').addEventListener('pointerup',pointerUp);$('paper').addEventListener('pointercancel',cancelDrag);
 $('paper').addEventListener('lostpointercapture',()=>{if(S.drag)cancelDrag();});
