@@ -63,6 +63,7 @@ async function run(engine, mobile=false) {
     const project=JSON.parse(await readFile(await (await save).path(),'utf8'));
     const image=project.pages[0].elements.find(e=>e.type==='image');assert.ok(image.data.startsWith('data:image/png;base64,'));
     assert.notEqual(image.data,original,'only the cleaned image is saved in the project');
+    page.once('dialog', dialog=>dialog.accept());
     const exp=page.waitForEvent('download');await page.click('#export');
     const {PDFDocument}=require('../docs/vendor/pdf-lib.min.js');
     const pdf=await PDFDocument.load(await readFile(await (await exp).path()));assert.equal(pdf.getPageCount(),2);
