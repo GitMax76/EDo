@@ -38,3 +38,25 @@ export function inkBounds(data, width, height) {
   left = Math.max(0, left - pad); top = Math.max(0, top - pad);
   return {x: left, y: top, width: Math.min(width, right + pad + 1) - left, height: Math.min(height, bottom + pad + 1) - top};
 }
+
+// Coordinates are image pixels; clamp each edge independently so a moved or
+// resized selection always stays inside the photo and never flips over.
+export function adjustCrop(rect, mode, handle, start, end, width, height) {
+  const limit = (n, min, max) => Math.round(Math.max(min, Math.min(max, n)));
+  const minW = Math.min(4, width), minH = Math.min(4, height);
+  const dx = end.x - start.x, dy = end.y - start.y;
+  if (mode === 'move') return {...rect, x: limit(rect.x + dx, 0, width - rect.w), y: limit(rect.y + dy, 0, height - rect.h)};
+  let left = rect.x, top = rect.y, right = left + rect.w, bottom = top + rect.h;
+  if (mode === 'new') {
+    left = limit(Math.min(start.x, end.x), 0, width - minW);
+    top = limit(Math.min(start.y, end.y), 0, height - minH);
+    right = limit(Math.max(start.x, end.x), left + minW, width);
+    bottom = limit(Math.max(start.y, end.y), top + minH, height);
+  } else {
+    if (handle.includes('w')) left = limit(left + dx, 0, right - minW);
+    if (handle.includes('e')) right = limit(right + dx, left + minW, width);
+    if (handle.includes('n')) top = limit(top + dy, 0, bottom - minH);
+    if (handle.includes('s')) bottom = limit(bottom + dy, top + minH, height);
+  }
+  return {x: left, y: top, w: right - left, h: bottom - top};
+}

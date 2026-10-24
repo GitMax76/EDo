@@ -4,6 +4,16 @@
 .signature-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .signature-grid section{min-width:0}.signature-grid h3{font-size:16px}
 .signature-source{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair}
+.signature-crop-frame{position:relative;width:min(100%,calc(46dvh * var(--signature-aspect,1)));margin:26px auto;touch-action:none;user-select:none}
+.signature-crop-outline{position:absolute;border:2px solid #16785f;pointer-events:none}
+.signature-dialog .signature-crop-handle{position:absolute;transform:translate(-50%,-50%);width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:50%;background:transparent;box-shadow:none;touch-action:none;z-index:1}
+.signature-crop-handle::after{content:'';display:block;width:16px;height:16px;margin:auto;border-radius:50%;border:2px solid #fff;background:#16785f;box-shadow:0 0 0 1px #16785f}
+.signature-crop-handle[data-handle=nw],.signature-crop-handle[data-handle=se]{cursor:nwse-resize}
+.signature-crop-handle[data-handle=ne],.signature-crop-handle[data-handle=sw]{cursor:nesw-resize}
+.signature-crop-handle[data-handle=n],.signature-crop-handle[data-handle=s]{cursor:ns-resize}
+.signature-crop-handle[data-handle=e],.signature-crop-handle[data-handle=w]{cursor:ew-resize}
+.signature-crop-actions{display:flex;gap:8px;flex-wrap:wrap}.signature-crop-actions button{flex:1}
+.signature-dialog .signature-crop-hint{font-size:15px;line-height:1.4;margin:10px 0}
 .signature-checker{background:repeating-conic-gradient(#dce2e3 0% 25%,#fff 0% 50%) 0 0/20px 20px;border:1px solid #c7d2cf;min-height:100px}
 .signature-preview{display:block;width:100%;height:auto;touch-action:none}
 .signature-slider{display:block;margin:16px 0;font-size:14px}.signature-slider input{display:block;width:100%;margin:10px 0}.signature-slider small{display:block;line-height:1.5;color:var(--muted)}

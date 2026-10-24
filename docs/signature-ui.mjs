@@ -1,4 +1,4 @@
-import {cleanSignature, inkBounds} from './signature.mjs';
+import {cleanSignature, inkBounds, adjustCrop} from './signature.mjs';
 
 export async function prepareSignature(data) {
   const image = new Image(); image.src = data; await image.decode();
@@ -8,11 +8,17 @@ export async function prepareSignature(data) {
     dialog.innerHTML = `<h2 id="signature-heading">Immagine o firma</h2>
       <p>Per una foto normale scegli <b>Usa immagine originale</b>. Per una firma, ritaglia l’area sul foglio ed elimina lo sfondo.</p>
       <div class="signature-grid"><section><h3>1. Ritaglia intorno alla firma</h3>
-      <p>Trascina sulla foto, anche con il dito. Escludi tavolo, bordi del foglio e scritte estranee.</p>
-      <canvas class="signature-source" aria-label="Foto originale: trascina per scegliere il ritaglio"></canvas>
-      <details><summary>Regola il ritaglio con i numeri</summary><div class="signature-margins">
+      <p>Disegna un riquadro intorno alla firma. Poi trascina i pallini per regolare i bordi, oppure l’interno per spostarlo.</p>
+      <div class="signature-crop-frame">
+      <canvas class="signature-source" aria-label="Foto originale: trascina per scegliere o spostare il ritaglio"></canvas>
+      <div class="signature-crop-outline" aria-hidden="true"></div>
+      ${[['nw','Angolo in alto a sinistra'],['n','Bordo superiore'],['ne','Angolo in alto a destra'],['e','Bordo destro'],['se','Angolo in basso a destra'],['s','Bordo inferiore'],['sw','Angolo in basso a sinistra'],['w','Bordo sinistro']].map(([position,label]) => `<button type="button" class="signature-crop-handle" data-handle="${position}" aria-label="${label} del ritaglio" title="${label}: trascina o usa i tasti freccia"></button>`).join('')}
+      </div>
+      <p class="signature-crop-hint" role="status">Trascina sulla foto per selezionare la firma.</p>
+      <div class="signature-crop-actions"><button type="button" data-action="newcrop" aria-pressed="true">Disegna nuovo ritaglio</button><button type="button" data-action="reset">Tutta la foto</button></div>
+      <details><summary>Opzioni avanzate: percentuali</summary><div class="signature-margins">
       ${['Sinistra', 'Alto', 'Destra', 'Basso'].map((label, i) => `<label>${label} %<input data-margin="${i}" type="number" min="0" max="99" value="0"></label>`).join('')}</div></details>
-      <button type="button" data-action="reset">Ripristina ritaglio</button></section>
+      </section>
       <section><h3>2. Controlla la firma pulita</h3><p>La scacchiera indica lo sfondo trasparente. Il tratto viene reso nero.</p>
       <div class="signature-checker"><canvas class="signature-preview" aria-label="Anteprima della firma su sfondo trasparente"></canvas></div>
       <button type="button" data-action="eraser" aria-pressed="false">Gomma: cancella i residui</button>
@@ -24,8 +30,8 @@ export async function prepareSignature(data) {
       <p class="signature-message" role="status" aria-live="polite"></p></section></div>
       <div class="dialog-actions"><button type="button" data-action="cancel">Annulla</button><button type="button" data-action="original">Usa immagine originale</button><button type="button" data-action="download">Scarica PNG</button><button type="button" class="primary" data-action="insert">Inserisci firma pulita</button></div>`;
     document.body.append(dialog);
-    const find = s => dialog.querySelector(s), source = find('.signature-source'), preview = find('.signature-preview');
-    let crop, drag, frame, bounds, erasing = false, stroke;
+    const find = s => dialog.querySelector(s), source = find('.signature-source'), preview = find('.signature-preview'), cropFrame = find('.signature-crop-frame');
+    let crop, drag, frame, bounds, erasing = false, stroke, drawing = true;
     const mask = document.createElement('canvas'), maskContext = mask.getContext('2d');
     const margins = [...dialog.querySelectorAll('[data-margin]')];
     const context = source.getContext('2d'), result = preview.getContext('2d');
@@ -35,6 +41,13 @@ export async function prepareSignature(data) {
       context.fillRect(0, 0, source.width, crop.y); context.fillRect(0, crop.y + crop.h, source.width, source.height - crop.y - crop.h);
       context.fillRect(0, crop.y, crop.x, crop.h); context.fillRect(crop.x + crop.w, crop.y, source.width - crop.x - crop.w, crop.h);
       context.strokeStyle = '#16a878'; context.lineWidth = 3; context.strokeRect(crop.x, crop.y, crop.w, crop.h);
+      const left = crop.x / source.width * 100, top = crop.y / source.height * 100, width = crop.w / source.width * 100, height = crop.h / source.height * 100;
+      Object.assign(find('.signature-crop-outline').style, {left: `${left}%`, top: `${top}%`, width: `${width}%`, height: `${height}%`});
+      for (const b of dialog.querySelectorAll('[data-handle]')) {
+        const h = b.dataset.handle;
+        b.style.left = `${left + (h.includes('w') ? 0 : h.includes('e') ? width : width / 2)}%`;
+        b.style.top = `${top + (h.includes('n') ? 0 : h.includes('s') ? height : height / 2)}%`;
+      }
     };
     const update = () => {
       frame = null;
@@ -59,20 +72,45 @@ export async function prepareSignature(data) {
       [crop.x / source.width, crop.y / source.height, 1 - (crop.x + crop.w) / source.width, 1 - (crop.y + crop.h) / source.height].forEach((v, i) => margins[i].value = Math.max(0, v * 100).toFixed(1));
       schedule();
     };
-    const point = event => { const r = source.getBoundingClientRect(); return {x: Math.max(0, Math.min(source.width - 1, (event.clientX - r.left) / r.width * source.width)), y: Math.max(0, Math.min(source.height - 1, (event.clientY - r.top) / r.height * source.height))}; };
-    source.onpointerdown = event => { if(event.button !== 0 || drag) return; event.preventDefault(); drag = {...point(event), id: event.pointerId, old: {...crop}}; source.setPointerCapture(event.pointerId); };
-    source.onpointermove = event => {
-      if (!drag || drag.id !== event.pointerId) return;
-      const p = point(event), x = Math.floor(Math.min(p.x, drag.x)), y = Math.floor(Math.min(p.y, drag.y));
-      setCrop({x, y, w: Math.max(1, Math.ceil(Math.abs(p.x - drag.x))), h: Math.max(1, Math.ceil(Math.abs(p.y - drag.y)))});
+    const setDrawing = value => {
+      drawing = value; find('[data-action="newcrop"]').setAttribute('aria-pressed', String(value));
+      source.style.cursor = value ? 'crosshair' : 'move';
+      find('.signature-crop-hint').textContent = value ? 'Trascina sulla foto per selezionare la firma.' : 'Trascina i pallini per regolare i bordi. Trascina dentro il riquadro per spostarlo.';
     };
-    source.onpointerup = event => { if (!drag || drag.id !== event.pointerId) return; if (crop.w < 4 || crop.h < 4) setCrop(drag.old); drag = null; source.releasePointerCapture(event.pointerId); };
-    source.onpointercancel = () => { if (drag) setCrop(drag.old); drag = null; };
-    source.onlostpointercapture = source.onpointercancel;
+    // Keep outside coordinates while dragging a handle; adjustCrop performs the
+    // clamping. This also makes movement at the photo edges behave naturally.
+    const point = event => { const r = source.getBoundingClientRect(); return {x: (event.clientX - r.left) / r.width * source.width, y: (event.clientY - r.top) / r.height * source.height}; };
+    cropFrame.onpointerdown = event => {
+      if(event.button !== 0 || drag) return;
+      const handle = event.target.closest('[data-handle]')?.dataset.handle || '', p = point(event);
+      const inside = p.x >= crop.x && p.y >= crop.y && p.x <= crop.x + crop.w && p.y <= crop.y + crop.h;
+      event.preventDefault();
+      drag = {start: p, id: event.pointerId, old: {...crop}, mode: handle ? 'resize' : !drawing && inside ? 'move' : 'new', handle, changed: false};
+      cropFrame.setPointerCapture(event.pointerId);
+    };
+    cropFrame.onpointermove = event => {
+      if (!drag || drag.id !== event.pointerId) return;
+      const p = point(event);
+      if (!drag.changed && Math.hypot(p.x - drag.start.x, p.y - drag.start.y) < 2) return;
+      drag.changed = true;
+      setCrop(adjustCrop(drag.old, drag.mode, drag.handle, drag.start, p, source.width, source.height));
+    };
+    cropFrame.onpointerup = event => { if (!drag || drag.id !== event.pointerId) return; if (drag.changed) setDrawing(false); drag = null; if(cropFrame.hasPointerCapture(event.pointerId)) cropFrame.releasePointerCapture(event.pointerId); };
+    cropFrame.onpointercancel = () => { if (drag) setCrop(drag.old); drag = null; };
+    cropFrame.onlostpointercapture = cropFrame.onpointercancel;
+    for (const button of dialog.querySelectorAll('[data-handle]')) button.onkeydown = event => {
+      if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
+      event.preventDefault();
+      const step = (event.shiftKey ? 10 : 2) * source.width / source.getBoundingClientRect().width;
+      const end = {x: event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0, y: event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0};
+      setCrop(adjustCrop(crop, 'resize', button.dataset.handle, {x: 0, y: 0}, end, source.width, source.height)); setDrawing(false);
+    };
+    find('[data-action="newcrop"]').onclick = () => { setDrawing(true); cropFrame.scrollIntoView({block: 'center', behavior: 'smooth'}); };
     margins.forEach(input => input.onchange = () => {
       const [left, top, right, bottom] = margins.map(m => Math.max(0, Math.min(99, Number(m.value) || 0)) / 100);
       if (left + right >= .99 || top + bottom >= .99) { setCrop(crop); return; }
       setCrop({x: Math.floor(left * source.width), y: Math.floor(top * source.height), w: Math.max(1, Math.floor((1 - left - right) * source.width)), h: Math.max(1, Math.floor((1 - top - bottom) * source.height))});
+      setDrawing(false);
     });
     dialog.querySelectorAll('[data-setting]').forEach(input => input.oninput = schedule);
     find('[data-action="eraser"]').onclick = event => {
@@ -107,7 +145,7 @@ export async function prepareSignature(data) {
     find('[data-action="cancel"]').onclick = () => finish(null);
     find('[data-action="original"]').onclick = () => finish(data);
     find('[data-action="insert"]').onclick = () => { const value = output(); if (value) finish(value); };
-    find('[data-action="reset"]').onclick = () => setCrop({x: 0, y: 0, w: source.width, h: source.height});
+    find('[data-action="reset"]').onclick = () => { setCrop({x: 0, y: 0, w: source.width, h: source.height}); setDrawing(true); };
     find('[data-action="download"]').onclick = () => {
       const value = output(); if (!value) return;
       const a = document.createElement('a'); a.href = value; a.download = 'firma.png'; document.body.append(a); a.click(); a.remove();
@@ -115,6 +153,7 @@ export async function prepareSignature(data) {
     try {
       const scale = Math.min(1, 1800 / Math.max(image.width, image.height));
       source.width = Math.max(1, Math.round(image.width * scale)); source.height = Math.max(1, Math.round(image.height * scale));
+      cropFrame.style.setProperty('--signature-aspect', source.width / source.height);
       mask.width = source.width; mask.height = source.height;
       setCrop({x: 0, y: 0, w: source.width, h: source.height});
       if(frame) cancelAnimationFrame(frame); update();

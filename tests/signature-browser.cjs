@@ -32,6 +32,16 @@ async function run(engine, mobile=false) {
     const box=await page.locator('.signature-source').boundingBox();
     await page.mouse.move(box.x+box.width*.9,box.y+box.height*.9);await page.mouse.down();
     await page.mouse.move(box.x+box.width*.1,box.y+box.height*.1,{steps:3});await page.mouse.up();
+    const cropRect=()=>page.locator('.signature-crop-outline').evaluate(e=>({x:parseFloat(e.style.left),y:parseFloat(e.style.top),w:parseFloat(e.style.width),h:parseFloat(e.style.height)}));
+    const originalCrop=await cropRect();
+    const handle=await page.locator('[data-handle="se"]').boundingBox();assert.ok(handle.width>=44&&handle.height>=44,'finger-sized handles');
+    await page.mouse.move(handle.x+handle.width/2,handle.y+handle.height/2);await page.mouse.down();
+    await page.mouse.move(handle.x+handle.width/2+box.width*.03,handle.y+handle.height/2+box.height*.03,{steps:3});await page.mouse.up();
+    const resized=await cropRect();assert.equal(resized.x,originalCrop.x);assert.equal(resized.y,originalCrop.y);assert.ok(resized.w>originalCrop.w&&resized.h>originalCrop.h,'corner grows selection');
+    const center={x:box.x+box.width*(resized.x+resized.w/2)/100,y:box.y+box.height*(resized.y+resized.h/2)/100};
+    await page.mouse.move(center.x,center.y);await page.mouse.down();await page.mouse.move(center.x+box.width*.02,center.y+box.height*.02,{steps:3});await page.mouse.up();
+    const moved=await cropRect();assert.equal(moved.w,resized.w);assert.equal(moved.h,resized.h);assert.ok(moved.x>resized.x&&moved.y>resized.y,'move preserves selection size');
+    await page.locator('[data-handle="w"]').press('ArrowLeft');assert.ok((await cropRect()).x<moved.x,'keyboard fine tuning');
     await page.click('[data-action="reset"]');
     await page.locator('summary').click();
     for(const [i,value] of ['20','20','20','25'].entries()) { await page.locator(`[data-margin="${i}"]`).fill(value); await page.locator(`[data-margin="${i}"]`).dispatchEvent('change'); }
@@ -50,6 +60,14 @@ async function run(engine, mobile=false) {
     assert.ok(png.width<480&&png.height<150,'PNG trimmed to signature');assert.ok(png.ink>200);assert.equal(png.border,0,'transparent padding');
     await page.click('#open');await page.waitForSelector('dialog[open]');await page.click('[data-action="original"]');await page.waitForFunction(()=>window.done);assert.equal(await page.evaluate(()=>window.value===window.original),true);
     await page.click('#open');await page.waitForSelector('dialog[open]');await page.keyboard.press('Escape');await page.waitForFunction(()=>window.done);assert.equal(await page.evaluate(()=>window.value),null);
+    // Even a portrait photo fits on screen: handles are attached to the photo,
+    // rather than sitting below a tall canvas that needs scrolling.
+    await page.evaluate(()=>{const c=document.createElement('canvas');c.width=800;c.height=1600;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#000';x.fillRect(100,800,300,3);window.landscape=window.original;window.original=c.toDataURL();});
+    await page.click('#open');await page.waitForSelector('dialog[open]');
+    await page.locator('.signature-crop-frame').scrollIntoViewIfNeeded();
+    const portrait=await page.locator('.signature-source').boundingBox();assert.ok(portrait.height<=page.viewportSize().height*.46+2,'portrait photo is bounded by viewport height');
+    const visible=await page.locator('.signature-source').evaluate(e=>{const r=e.getBoundingClientRect(),d=e.closest('dialog').getBoundingClientRect();return r.top>=Math.max(0,d.top)&&r.bottom<=Math.min(innerHeight,d.bottom);});assert.equal(visible,true,'whole photo visible while dragging');
+    await page.click('[data-action="cancel"]');await page.evaluate(()=>window.original=window.landscape);
     const original=await page.evaluate(()=>window.original);
     await page.goto(`http://127.0.0.1:${server.address().port}/docs/index.html?demo`);
     await page.waitForFunction(()=>window.pdfEditor?.state.pages.length===2);

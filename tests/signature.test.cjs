@@ -24,3 +24,17 @@ test('blank or transparent pictures produce no signature', async () => {
     assert.equal(inkBounds(cleanSignature(data,64,64),64,64),null);
   }
 });
+test('crop handles resize only their edges, stop at photo limits, and cannot flip', async () => {
+  const {adjustCrop}=await import('../docs/signature.mjs');
+  const rect={x:100,y:80,w:400,h:200}, start={x:0,y:0};
+  assert.deepEqual(adjustCrop(rect,'resize','se',start,{x:30,y:20},800,400),{x:100,y:80,w:430,h:220});
+  assert.deepEqual(adjustCrop(rect,'resize','nw',start,{x:-200,y:-200},800,400),{x:0,y:0,w:500,h:280});
+  assert.deepEqual(adjustCrop(rect,'resize','w',start,{x:1000,y:1000},800,400),{x:496,y:80,w:4,h:200});
+  assert.deepEqual(adjustCrop(rect,'resize','s',start,{x:0,y:1000},800,400),{x:100,y:80,w:400,h:320});
+});
+test('moving a crop preserves its size and drawing works in both directions', async () => {
+  const {adjustCrop}=await import('../docs/signature.mjs');
+  const rect={x:100,y:80,w:400,h:200};
+  assert.deepEqual(adjustCrop(rect,'move','',{x:0,y:0},{x:900,y:-900},800,400),{x:400,y:0,w:400,h:200});
+  assert.deepEqual(adjustCrop(rect,'new','',{x:700,y:300},{x:100,y:40},800,400),{x:100,y:40,w:600,h:260});
+});
