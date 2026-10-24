@@ -310,7 +310,7 @@ async function exportPDF(){
         const [copied]=await out.copyPages(loaded.get(p.source),[p.number-1]);target=out.addPage(copied);target.setRotation(degrees((target.getRotation().angle+p.rotation)%360));
       }
     }
-    out.setTitle('Documento modificato');out.setProducer('E.Do.-Fa — Editor Documenti Facile');
+    out.setTitle('Documento modificato');out.setProducer('E.Do. — Editor Documenti');
     download(await out.save(),'application/pdf',S.name.replace(/\.pdf$/i,'')+'_modificato.pdf');status('PDF scaricato. Salva anche il progetto se vuoi riprendere le aggiunte.');
   });
 }
@@ -324,7 +324,7 @@ async function loadProject(file){
   if(!file)return;if(S.dirty&&!confirm('Aprire il progetto e lasciare le modifiche attuali?'))return;
   await busy('Riapro il progetto…',async()=>{
     const project=JSON.parse(await file.text());
-    if(project.format!=='pdf-fast-editor'||project.version!==1||!Array.isArray(project.pages)||!project.pages.length||!Array.isArray(project.sources))throw Error('Questo file non è un progetto E.Do.-Fa valido.');
+    if(project.format!=='pdf-fast-editor'||project.version!==1||!Array.isArray(project.pages)||!project.pages.length||!Array.isArray(project.sources))throw Error('Questo file non è un progetto E.Do. valido.');
     const allowed=new Set(['text','correct','image','highlight','redact']);
     for(const p of project.pages){
       if(![0,90,180,270].includes(p.rotation)||!Array.isArray(p.elements))throw Error('Pagina progetto non valida.');
@@ -354,7 +354,7 @@ async function demo(){
     p.drawText(lines.join('\n'),{x:54,y:620,size:13,font,lineHeight:24,color:rgb(.28,.34,.4)});
     p.drawLine({start:{x:54,y:250},end:{x:541,y:250},thickness:1,color:rgb(.82,.87,.85)});
     p.drawText('Uno spazio per la tua nota',{x:54,y:225,size:11,font,color:rgb(.4,.5,.45)});
-    p.drawText('E.Do.-Fa  /  Documento dimostrativo',{x:54,y:40,size:9,font,color:rgb(.5,.55,.58)});
+    p.drawText('E.Do.  /  Documento dimostrativo',{x:54,y:40,size:9,font,color:rgb(.5,.55,.58)});
     p=doc.addPage([595,842]);p.drawText('Una seconda pagina, tutta per te.',{x:54,y:760,size:23,font:bold,color:rgb(.1,.19,.27)});p.drawText('Prova a ruotarla, spostarla o eliminarla.',{x:54,y:718,size:13,font});
     const bytes=await doc.save();const opened=await openPDF(new File([bytes],'Esempio.pdf',{type:'application/pdf'}));
     if(opened&&page()){
