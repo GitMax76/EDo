@@ -1,7 +1,7 @@
 name: Verifica e pubblica E.Do.-Fa
 on:
   push:
-    branches: [main]
+    branches: [main, codex/signature-cleanup]
   workflow_dispatch:
 permissions:
   contents: read
@@ -11,7 +11,23 @@ concurrency:
   group: pages
   cancel-in-progress: false
 jobs:
+  signature:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Installa browser di prova
+        run: |
+          npm install --no-save --package-lock=false playwright@1.58.2
+          npx playwright install --with-deps chromium webkit
+      - name: Verifica firma su desktop e telefono
+        run: node tests/signature-browser.cjs
   publish:
+    needs: signature
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -27,6 +43,8 @@ jobs:
           node --check docs/app.js
           node --check docs/feedback.js
           node --check docs/ui-settings.js
+          node --check docs/signature.mjs
+          node --check docs/signature-ui.mjs
           node --test tests/*.test.cjs
           python3 -m unittest discover -s tests -p 'test_weekly_report.py'
       - uses: actions/configure-pages@v5

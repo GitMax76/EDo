@@ -12,6 +12,7 @@ Puoi anche scaricare il codice, estrarre tutti i file e fare doppio clic su **AV
 
 - Testo e correzioni direttamente sulla pagina, senza popup per digitare.
 - Immagini e firme PNG/JPEG, spostamento e ridimensionamento delle aggiunte.
+- Pulizia delle foto della firma: ritaglio, sfondo trasparente, intensità del nero e gomma per eliminare i residui; inserimento nel PDF o download PNG.
 - Evidenziazioni e oscuramenti.
 - Rotazione, riordino, eliminazione, unione e aggiunta di pagine.
 - Interfaccia leggibile e pulsante **Testo più grande**.
@@ -25,6 +26,12 @@ Puoi anche scaricare il codice, estrarre tutti i file e fare doppio clic su **AV
 4. Clic fuori o **Fatto** conferma; **Esc** annulla la scrittura in corso.
 
 Con **Sposta gli elementi** trascini le aggiunte. Il doppio clic su un tuo testo lo rende nuovamente scrivibile.
+
+## Foto della firma
+
+Con **Immagine o firma** scegli una foto. Puoi inserirla invariata con **Usa immagine originale**, oppure ritagliare la firma, eliminando tavolo e contorni del foglio. La pulizia rende trasparente il fondo e nero il tratto, con regolazioni per le ombre e i tratti leggeri. Usa la gomma nell'anteprima per cancellare eventuali segni estranei: il filtro non riconosce semanticamente la firma e non garantisce la rimozione automatica di ogni oggetto. Prima di inserire o scaricare il PNG, verifica che restino soltanto i tratti della firma. La scacchiera è solo un'indicazione della trasparenza e non viene esportata. L'output viene ritagliato attorno ai tratti rimasti, con un piccolo margine trasparente.
+
+Puoi pulire anche un'immagine già inserita, selezionandola e premendo **Pulisci firma / togli sfondo**. La modifica può essere annullata. La foto viene elaborata nel browser; non è inviata a servizi esterni. Le foto grandi vengono ridotte a un massimo di 1.800 pixel sul lato maggiore per la pulizia. I progetti contengono l'immagine pulita, senza aggiungere una copia della foto originale; la cronologia temporanea di annullamento può mantenere la versione precedente fino alla chiusura della sessione.
 
 ## Esportazione: limite di questa prima versione
 

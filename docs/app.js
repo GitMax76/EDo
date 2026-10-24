@@ -1,4 +1,5 @@
 import { dominantColor } from './background.mjs';
+import { prepareSignature } from './signature-ui.mjs';
 import * as pdfjs from './vendor/pdf.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.mjs', import.meta.url).href;
 const $ = id => document.getElementById(id);
@@ -58,6 +59,7 @@ function inspector() {
   const text = ['text', 'correct'].includes(e.type);
   $('text-field').hidden = !text; $('size-field').hidden = !text; $('color-field').hidden = !text;
   $('apply').hidden = !text;
+  $('clean-signature').hidden = e.type !== 'image';
   $('element-text').value = e.text || ''; $('element-size').value = e.size || 16;
   $('element-color').value = e.color || '#172b42';
 }
@@ -370,12 +372,27 @@ $('pdf-input').onchange=e=>{openPDF(e.target.files[0]);e.target.value='';};
 $('merge').onclick=()=>$('merge-input').click();$('merge-input').onchange=e=>{openPDF(e.target.files[0],true);e.target.value='';};
 $('image-input').onchange=async event=>{
   const file=event.target.files[0];event.target.value='';if(!file||!page())return;
-  await busy('Aggiungo l’immagine…',async()=>{
+  const targetPage=page(), point={...(imagePoint||{x:30,y:30})};
+  const original=await busy('Apro l’immagine…',async()=>{
     const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);});
     if(!/^data:image\/(png|jpeg);base64,/.test(data))throw Error('Scegli una immagine PNG o JPEG.');
-    const img=new Image();img.src=data;await img.decode();const w=Math.min(180,S.width,S.height*img.width/img.height),h=w*img.height/img.width;
-    addElement({type:'image',data,w,h,x:clamp(imagePoint.x,0,S.width-w),y:clamp(imagePoint.y,0,S.height-h)});
+    return data;
   });
+  if(!original)return;
+  const data=await prepareSignature(original);if(!data||page()!==targetPage)return;
+  await busy('Aggiungo l’immagine…',async()=>{
+    const img=new Image();img.src=data;await img.decode();const w=Math.min(180,S.width,S.height*img.width/img.height),h=w*img.height/img.width;
+    addElement({type:'image',data,w,h,x:clamp(point.x,0,S.width-w),y:clamp(point.y,0,S.height-h)});
+  });
+};
+$('clean-signature').onclick=async()=>{
+  const e=element();if(e?.type!=='image')return;
+  const targetPage=page(), data=await prepareSignature(e.data);
+  if(!data||page()!==targetPage||!targetPage.elements.includes(e)||data===e.data)return;
+  const img=new Image();img.src=data;await img.decode();
+  checkpoint();e.data=data;
+  const w=Math.min(e.w,S.width-e.x,(S.height-e.y)*img.width/img.height);
+  e.w=w;e.h=w*img.height/img.width;drawElements();listPages();status('Firma pulita. Puoi annullare la modifica.');
 };
 $('paper').addEventListener('pointerdown',event=>{pointerDown(event).catch(e=>toast(e.message));});
 function cancelDrag(){const drag=S.drag;S.drag=null;$('selection').hidden=true;if(drag&&$('paper').hasPointerCapture(drag.pointer))$('paper').releasePointerCapture(drag.pointer);if(page())drawElements();}
