@@ -88,7 +88,7 @@ export function setupPage(message = '', status = 200) {
   .notice{padding:14px;background:#fff3da;border-radius:10px}a{color:#116a54}</style>
   <main><h1>Collega la tua chat Telegram</h1>
   ${message ? '<p class="notice" role="status">'+escapeHTML(message)+'</p>' : ''}
-  <p>Configurazione del proprietario. Versione 3: accesso con il token di BotFather. Non serve creare un'altra password.</p>
+  <p>Configurazione del proprietario. Versione 4: copia da BotFather assistita. Non serve creare un'altra password.</p>
   <ol><li>Tieni a portata di mano il token ricevuto da BotFather, gia salvato nel segreto TELEGRAM_BOT_TOKEN del tuo Worker.</li>
   <li>Apri la chat privata con il tuo bot e inviagli questo messaggio (puoi selezionarlo e copiarlo):<code>${command}</code></li>
   <li>Entro 15 minuti, incolla qui sotto il token di BotFather e premi il pulsante. Viene inviato solo a questo Worker Cloudflare tramite HTTPS, mai nell'indirizzo della pagina.</li></ol>
@@ -118,21 +118,30 @@ async function validSetupKey(input, secret) {
   let different = 0; for (let i=0;i<a.length;i++) different |= a[i]^b[i];
   return different === 0;
 }
+export function normalizeBotToken(value) {
+  if (typeof value !== 'string' || value.length > 8192) return '';
+  // Recover a single unambiguous token from quotes, copied BotFather messages,
+  // environment assignments or an official API URL. Never change token letters.
+  const clean = value.replace(/[\u200b-\u200f\u2060\ufeff]/g,'').replace(/\uff1a/g,':').trim();
+  const matches = [...clean.matchAll(/(?:^|[^A-Za-z0-9_-])(?:bot)?([0-9]+:[A-Za-z0-9_-]+)(?=$|[^A-Za-z0-9_-])/g)];
+  const tokens = [...new Set(matches.map(match => match[1]))];
+  return tokens.length === 1 ? tokens[0] : '';
+}
 export async function authorizeTelegramSetup(data, env) {
-  const stored = typeof env.TELEGRAM_BOT_TOKEN === 'string' ? env.TELEGRAM_BOT_TOKEN.trim() : '';
-  const supplied = typeof data.key === 'string' ? data.key.trim() : '';
+  const stored = normalizeBotToken(env.TELEGRAM_BOT_TOKEN);
+  const supplied = normalizeBotToken(data.key);
   // Compatibility for old forms only; the new page uses token authentication.
   if (data.auth !== 'token' && await validSetupKey(data.key, env.TELEGRAM_SETUP_KEY)) return {ok:true};
-  if (!stored) return {ok:false,message:'In questo Worker manca TELEGRAM_BOT_TOKEN. Aggiungi quel segreto in Production con il token di BotFather.'};
-  if (!/^[0-9]+:[A-Za-z0-9_-]+$/.test(stored)) return {ok:false,message:'Il segreto TELEGRAM_BOT_TOKEN contiene un valore con formato errato. Deve contenere solo il token di BotFather, senza virgolette.'};
-  if (!/^[0-9]+:[A-Za-z0-9_-]+$/.test(supplied)) return {ok:false,message:'Qui va il token di BotFather (numeri, due punti e lettere), non la password TELEGRAM_SETUP_KEY.'};
+  if (!env.TELEGRAM_BOT_TOKEN) return {ok:false,message:'In questo Worker manca TELEGRAM_BOT_TOKEN. Aggiungi quel segreto in Production con il token di BotFather.'};
+  if (!stored) return {ok:false,message:'Il valore salvato in Cloudflare non contiene un singolo token riconoscibile, anche dopo la pulizia della copia. Non e ancora stato contattato Telegram. Serve controllare il valore del segreto TELEGRAM_BOT_TOKEN nell account e nel Worker corretti.'};
+  if (!supplied) return {ok:false,message:'Qui va il token di BotFather (numeri, due punti e lettere), non la password TELEGRAM_SETUP_KEY. Puoi incollare anche il messaggio di BotFather contenente una sola chiave.'};
   if (!await validSetupKey(supplied,stored)) return {ok:false,message:'Il token incollato e diverso da quello salvato in TELEGRAM_BOT_TOKEN su Cloudflare. Copia la stessa chiave attuale di BotFather nei due punti.'};
   return {ok:true};
 }
 class TelegramError extends Error {}
 export async function telegramCall(token, method, data, send = fetch) {
-  token = typeof token === 'string' ? token.trim() : '';
   if (!token) throw new TelegramError('Manca il segreto TELEGRAM_BOT_TOKEN in Production.');
+  token = normalizeBotToken(token);
   if (!/^[0-9]+:[A-Za-z0-9_-]+$/.test(token)) throw new TelegramError('Formato del token non valido. In TELEGRAM_BOT_TOKEN inserisci solo la chiave di BotFather, senza virgolette o testo aggiuntivo.');
   // The token is used only server-side with the official Telegram API.
   let res;

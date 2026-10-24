@@ -118,3 +118,15 @@ test('new setup identifies missing token and password used in the wrong field',a
   assert.match((await authorizeTelegramSetup({auth:'token',key:'a-password-with-20-characters'},
     {TELEGRAM_BOT_TOKEN:token})).message,/non la password/);
 });
+test('BotFather copy cleanup accepts wrappers and invisible copy characters',async()=>{
+  const {normalizeBotToken,authorizeTelegramSetup}=await import('../cloudflare/worker.mjs');
+  const token='123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ_123456789';
+  for (const copy of ['"'+token+'"','TELEGRAM_BOT_TOKEN='+token,
+    'Use this token to access the HTTP API:\n'+token+'\nKeep your token secure.',
+    'https://api.telegram.org/bot'+token+'/getMe',token.slice(0,15)+'\u200b'+token.slice(15)]) {
+    assert.equal(normalizeBotToken(copy),token);
+    assert.equal((await authorizeTelegramSetup({auth:'token',key:token},{TELEGRAM_BOT_TOKEN:copy})).ok,true);
+  }
+  assert.equal(normalizeBotToken(token+'\n98765:DIFFERENT'), '');
+  assert.equal(normalizeBotToken({secret:'not plaintext'}),'');
+});
