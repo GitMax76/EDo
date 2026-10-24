@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 import uuid
 import unicodedata
+import time
 from zoneinfo import ZoneInfo
 
 BASE = 'https://edofa-feedback.massi-sabato.workers.dev'
@@ -103,6 +104,26 @@ def verify_pairing_bot(token):
         raise RuntimeError('Il bot corretto ha un webhook attivo: i messaggi vengono consegnati a un altro servizio. Nessun webhook cancellato automaticamente.')
     print('Diagnosi: token del bot @Edo_feedback_bot confermato; nessun webhook attivo.')
 
+def wait_pairing_chat(token, code, seconds=180):
+    if not re.fullmatch(r'[A-Za-z0-9_-]{16,100}', code):
+        raise RuntimeError('Codice di collegamento non valido.')
+    deadline = time.monotonic()+seconds
+    pending=[]; offset=None
+    print('In ascolto per tre minuti: inviare ora il codice al bot.', flush=True)
+    while True:
+        request={'limit':100,'timeout':20,'allowed_updates':['message']}
+        if offset is not None: request['offset']=offset
+        updates = telegram(token, 'getUpdates', request)
+        pending.extend(updates)
+        if updates: offset=max(item['update_id'] for item in updates)+1
+        try:
+            return matching_chat(pending, code)
+        except RuntimeError as error:
+            if 'piu chat' in str(error): raise
+            if time.monotonic() >= deadline: raise
+            if len(pending)>1000:
+                raise RuntimeError('Troppi messaggi in attesa: nessun collegamento effettuato.')
+
 def report_text(rows, start, end):
     title = 'E.Do.-Fa | Feedback settimanali'
     period = start.strftime('%d/%m/%Y')+' - '+(end-dt.timedelta(days=1)).strftime('%d/%m/%Y')
@@ -130,9 +151,12 @@ def main():
     token = token_from(raw)
     if os.environ.get('REPORT_MODE', 'report') == 'collega':
         verify_pairing_bot(token)
-        updates = read_pairing_updates(token)
-        chat = matching_chat(updates, os.environ.get('PAIRING_CODE', '').strip())
         state = worker(token, 'status')
+        code = os.environ.get('PAIRING_CODE', '').strip()
+        if os.environ.get('PAIRING_WAIT') == '1':
+            chat = wait_pairing_chat(token, code)
+        else:
+            chat = matching_chat(read_pairing_updates(token), code)
         if state.get('enabled') and state.get('chat_id') != chat:
             raise RuntimeError('Esiste gia una chat diversa collegata al report. Nessuna modifica effettuata.')
         telegram(token, 'sendMessage', {'chat_id': chat, 'protect_content': True,

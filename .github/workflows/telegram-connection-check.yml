@@ -1,0 +1,27 @@
+name: Verifica collegamento Telegram
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/telegram-connection-check.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: weekly-feedback
+  cancel-in-progress: false
+jobs:
+  connection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verifica servizi e attendi collegamento privato
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          REPORT_MODE: collega
+          PAIRING_CODE: edofa-collega-24ottobre-6f7c92bd
+          PAIRING_WAIT: '1'
+        run: python -u scripts/weekly_feedback.py

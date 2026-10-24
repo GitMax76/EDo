@@ -9,6 +9,13 @@ report=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(report)
 
 class WeeklyReportTests(unittest.TestCase):
+    def test_listening_accepts_message_arriving_after_empty_queue(self):
+        code='private-report-code-12345'
+        now=int(dt.datetime.now(dt.timezone.utc).timestamp())
+        item={'update_id':1,'message':{'date':now,'text':code,'chat':{'type':'private','id':42},'from':{'id':42,'is_bot':False}}}
+        with patch.object(report,'telegram',side_effect=[[],[item]]):
+            self.assertEqual(report.wait_pairing_chat('private',code),'42')
+
     def test_wrong_bot_stops_before_reading_messages(self):
         with patch.object(report,'telegram',return_value={'username':'OtherBot'}) as api:
             with self.assertRaisesRegex(RuntimeError,'bot diverso'):
