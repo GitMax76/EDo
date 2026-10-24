@@ -94,7 +94,7 @@ async function check(engine,mobile=false){
     // Closing the tutorial while typing must leave the user's draft intact.
     await tap('#help');await page.selectOption('#guide-route','basics');await wait('textTool');await tap('[data-tool="text"]');await wait('textDraw');await draw();await wait('textWrite');
     await tap('#inline-cancel');await wait('textTool');await tap('[data-tool="text"]');await wait('textDraw');await draw();await wait('textWrite');
-    await page.locator('#inline-text').fill('Bozza da conservare');await tap('#guide-skip');
+    await page.locator('#inline-text').fill('Bozza da conservare');await settle();assert.equal(await page.locator('#inline-editor').isVisible(),true,'draft remains open before leaving the guide');await tap('#guide-skip');
     assert.equal(await page.locator('#inline-text').inputValue(),'Bozza da conservare');assert.equal(await page.locator('#inline-editor').isVisible(),true,'leaving the guide does not commit or discard a draft');
     await tap('#inline-cancel');
     const manifest=await (await page.request.get(url+'manifest.webmanifest')).json();assert.equal(manifest.display,'standalone');

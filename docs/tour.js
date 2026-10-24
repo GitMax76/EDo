@@ -27,7 +27,7 @@
     project: {group:'project', title:'Conserva il lavoro modificabile', text:'“Salva progetto” conserva le aggiunte da riprendere con “Apri progetto”. Il progetto contiene anche il PDF originale: tienilo per te.', selector:'#save-project'},
     finish: {group:'finish', title:'Hai completato il percorso', text:'Puoi continuare a lavorare. Da “Come funziona” puoi rifare la guida o scegliere solo firma, bianchetto o pagine.', selector:'#help'}
   };
-  let running = false, paused = false, route = 'basics', index = 0, textId = null, imageId = null, writing = false, frame = 0, previousTarget = null, previousDescription = null, afterSignature = null;
+  let running = false, paused = false, route = 'basics', index = 0, textId = null, imageId = null, writing = false, frame = 0, previousTarget = null, previousDescription = null, afterSignature = null, preserveDraft = false;
   const panel = document.createElement('section'); panel.id = 'guide-panel'; panel.className = 'tour-panel'; panel.hidden = true; panel.setAttribute('role','region'); panel.setAttribute('aria-label','Guida interattiva');
   panel.innerHTML = `<div class="tour-top"><span id="guide-progress"></span><button id="guide-skip" type="button" class="quiet">Esci dalla guida</button></div><label class="tour-route">Cosa vuoi imparare?<select id="guide-route">${Object.entries(routes).map(([key,value])=>`<option value="${key}">${value.label}</option>`).join('')}</select></label><div aria-live="polite" aria-atomic="true"><h2 id="guide-title"></h2><p id="guide-body"></p></div><div class="tour-actions"><button id="guide-show" type="button">Mostra dove</button><button id="guide-demo" type="button" hidden>Usa un esempio</button><button id="guide-next" type="button">Salta questo argomento</button><button id="guide-install" type="button" hidden>Aggiungi alla Home</button><button id="guide-details" type="button" hidden>Tutte le istruzioni</button><button id="guide-finish" type="button" class="primary" hidden>Ho finito</button></div>`;
   const ring = document.createElement('div'); ring.id = 'guide-spotlight'; ring.hidden = true; ring.setAttribute('aria-hidden','true');
@@ -179,7 +179,9 @@
     schedule();
   });
   $('inline-text').addEventListener('input',()=>{if(running&&['textWrite','correctWrite'].includes(current())){const value=Boolean($('inline-text').value.trim());if(value!==writing){writing=value;render(writing);}}});
-  panel.addEventListener('pointerdown',e=>{if(!$('inline-editor').hidden&&e.target.closest('button'))e.preventDefault();});
+  panel.addEventListener('pointerdown',e=>{if(!$('inline-editor').hidden&&e.target.closest('button')){preserveDraft=true;e.preventDefault();}});
+  panel.addEventListener('click',()=>requestAnimationFrame(()=>{preserveDraft=false;}));
+  panel.addEventListener('pointercancel',()=>{preserveDraft=false;});
   $('guide-skip').onclick=$('guide-finish').onclick=stop;
   $('guide-show').onclick=showTarget;$('guide-next').onclick=skip;
   $('guide-demo').onclick=()=>{if(!loaded())$('demo').click();};
@@ -193,7 +195,7 @@
   window.visualViewport?.addEventListener('resize',resized);window.visualViewport?.addEventListener('scroll',schedule);
   new ResizeObserver(schedule).observe(panel);
   new MutationObserver(schedule).observe($('layer'),{childList:true});
-  window.edoTour={start,stop,pause,resume,active:()=>running};
+  window.edoTour={start,stop,pause,resume,active:()=>running,preservingDraft:()=>preserveDraft};
   let seen=false;try{seen=localStorage.getItem(seenKey)==='true';}catch{}
   if(!seen&&location.protocol!=='file:')requestAnimationFrame(()=>{if($('busy').hidden&&!document.querySelector('dialog[open]'))start();});
 })();
