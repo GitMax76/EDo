@@ -37,6 +37,22 @@ class WeeklyReportTests(unittest.TestCase):
         self.assertIn(text,output)
         self.assertNotIn('PRIVATE-NETWORK',output)
 
+    def test_pairing_accepts_plain_code_and_both_command_spellings(self):
+        code='private-report-code-12345';now=1800000000
+        for text in [code, ' '+code+'\n','/edofa_report '+code,'/edofa-report '+code,'/edofa_report@MyBot '+code]:
+            update={'message':{'date':now,'text':text,'chat':{'type':'private','id':42},'from':{'id':42,'is_bot':False}}}
+            self.assertEqual(report.matching_chat([update],code,now),'42')
+
+    def test_empty_update_diagnostic_exposes_counts_only(self):
+        with self.assertRaisesRegex(RuntimeError,'Aggiornamenti letti: 0; messaggi privati recenti: 0'):
+            report.matching_chat([],'private-report-code-12345',1800000000)
+
+    def test_pending_updates_are_paginated(self):
+        pages=[[{'update_id':i} for i in range(100)],[{'update_id':100}]]
+        with patch.object(report,'telegram',side_effect=pages) as telegram:
+            self.assertEqual(len(report.read_pairing_updates('private')),101)
+            self.assertEqual(telegram.call_args_list[1].args[2]['offset'],100)
+
     def test_duplicate_completed_report_never_calls_telegram(self):
         def worker(token,action,payload=None):
             return {'status':{'enabled':True,'chat_id':'42'},'list':{'rows':[]},'claim':{'claimed':False,'state':'inviato'}}[action]

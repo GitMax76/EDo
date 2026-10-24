@@ -7,6 +7,7 @@ import sys
 import urllib.error
 import urllib.request
 import uuid
+import unicodedata
 from zoneinfo import ZoneInfo
 
 BASE = 'https://edofa-feedback.massi-sabato.workers.dev'
@@ -57,16 +58,41 @@ def matching_chat(updates, code, now=None):
         raise RuntimeError('Usa un codice di collegamento di almeno 16 caratteri, solo lettere, numeri, trattini.')
     now = now or dt.datetime.now(dt.timezone.utc).timestamp()
     chats = set()
+    recent_private = 0
+    recent_code = 0
     for update in updates:
         message = update.get('message', {})
         chat, sender = message.get('chat', {}), message.get('from', {})
+        text = unicodedata.normalize('NFKC', message.get('text', ''))
+        text = re.sub('[\u200b-\u200f\u2060\ufeff]', '', text).strip()
+        text = ' '.join(text.split())
+        matches = text == code or bool(re.fullmatch(r'/edofa[-_]report(?:@[A-Za-z0-9_]+)? '+re.escape(code),text))
+        recent = -30 <= now-message.get('date', 0) <= 1800
+        if chat.get('type') == 'private' and recent:
+            recent_private += 1
+            if matches: recent_code += 1
         if (chat.get('type') == 'private' and sender.get('is_bot') is False
-            and sender.get('id') == chat.get('id') and message.get('text') == '/edofa-report '+code
-            and -30 <= now-message.get('date', 0) <= 1800):
+            and sender.get('id') == chat.get('id') and matches and recent):
             chats.add(str(chat['id']))
     if len(chats) != 1:
-        raise RuntimeError('Non trovo una sola chat privata con il codice recente. Invia /edofa-report CODICE al tuo bot e riprova.')
+        if len(chats)>1:
+            raise RuntimeError('Il codice compare in piu chat: collegamento bloccato per evitare un destinatario errato.')
+        raise RuntimeError('Telegram risponde. Aggiornamenti letti: '+str(len(updates))+
+            '; messaggi privati recenti: '+str(recent_private)+'; corrispondenze codice: '+str(recent_code)+
+            '. Invia SOLO IL CODICE nella chat privata del bot associato al token, poi avvia una nuova esecuzione.')
     return chats.pop()
+
+def read_pairing_updates(token):
+    updates=[];offset=None
+    # Paginate pending updates so an old backlog cannot hide the new message.
+    for _ in range(10):
+        request={'limit':100,'timeout':0,'allowed_updates':['message']}
+        if offset is not None: request['offset']=offset
+        page=telegram(token,'getUpdates',request)
+        updates.extend(page)
+        if len(page)<100: return updates
+        offset=max(item['update_id'] for item in page)+1
+    raise RuntimeError('Ci sono oltre 1000 aggiornamenti in attesa. Serve svuotare il backlog del bot prima del collegamento.')
 
 def report_text(rows, start, end):
     title = 'E.Do.-Fa | Feedback settimanali'
@@ -95,7 +121,7 @@ def main():
     token = token_from(raw)
     if os.environ.get('REPORT_MODE', 'report') == 'collega':
         telegram(token, 'getMe', {})  # Verify runner -> Telegram before changing configuration.
-        updates = telegram(token, 'getUpdates', {'limit': 100, 'timeout': 0, 'allowed_updates': ['message']})
+        updates = read_pairing_updates(token)
         chat = matching_chat(updates, os.environ.get('PAIRING_CODE', '').strip())
         state = worker(token, 'status')
         if state.get('enabled') and state.get('chat_id') != chat:
