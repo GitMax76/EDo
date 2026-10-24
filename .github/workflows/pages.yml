@@ -48,6 +48,7 @@ jobs:
           node --check docs/signature.mjs
           node --check docs/signature-ui.mjs
           node --check docs/guide.js
+          node --check docs/tour.js
           node --test tests/*.test.cjs
           python3 -m unittest discover -s tests -p 'test_weekly_report.py'
       - uses: actions/configure-pages@v5

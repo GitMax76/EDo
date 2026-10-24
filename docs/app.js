@@ -11,6 +11,7 @@ const clone = value => JSON.parse(JSON.stringify(value));
 const page = () => S.pages[S.index];
 const element = () => page()?.elements.find(e => e.id === S.selected);
 const uid = () => crypto.randomUUID();
+const editorAction = (type, detail = {}) => window.dispatchEvent(new CustomEvent('edo:action', {detail: {type, ...detail}}));
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 function toast(message) { $('toast').textContent = message; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').hidden = true, 6500); }
 function status(message) { $('status').textContent = message; }
@@ -47,6 +48,7 @@ function tool(name) {
   const hints = {move: 'Trascina per spostare. Doppio clic sul tuo testo per scriverci direttamente dentro.', text: 'Trascina un riquadro sulla pagina, poi scrivi direttamente al suo interno.', image: 'Fai clic sulla pagina, poi scegli una tua immagine o firma.', correct: 'Trascina sulla parte da coprire. Scrivi nel riquadro oppure premi Fatto per lasciarlo vuoto.', highlight: 'Trascina un rettangolo sulla parte che vuoi evidenziare.', redact: 'Trascina sull’area da oscurare: nel PDF esportato il contenuto sotto la banda sarà eliminato.'};
   $('hinttext').textContent = hints[name];
   $('paper').style.cursor = name === 'move' ? 'default' : 'crosshair';
+  editorAction('tool-selected', {tool: name});
 }
 function inspector() {
   const e = element();
@@ -146,6 +148,7 @@ async function openPDF(file, append=false) {
     if (append) { checkpoint(); S.sources.push(source);S.pages.push(...newPages); }
     else { for (const s of S.sources) s.pdf.destroy(); S.sources=[source];S.pages=newPages;S.index=0;S.selected=null;S.history=[];S.dirty=false;S.name=file.name;S.zoom=1; }
     await render(); tool('move'); status(append?'PDF aggiunto in fondo al documento.':'PDF aperto. Scegli uno strumento a sinistra.');
+    editorAction('document-opened');
     return true;
   });
 }
@@ -181,6 +184,7 @@ function beginInline(rect, initial='', target=null, type='text', size=16) {
   $('hinttext').textContent='Scrivi nel riquadro. Quando hai finito, fai clic fuori oppure premi Fatto. Esc annulla.';
   $('inline-text').focus();
   if(initial)$('inline-text').select();
+  editorAction('inline-opened', {elementType: type});
 }
 function fitInlineText() {
   if(!inlineEdit)return;
@@ -207,8 +211,10 @@ function commitInline(cancel=false) {
   $('hinttext').textContent='Testo pronto. Trascina per spostarlo, oppure fai doppio clic per scriverci di nuovo.';
   drawElements();listPages();updateUI();
   status(cancel?'Scrittura annullata.':'Testo confermato sulla pagina.');
+  if(!cancel && (text.trim() || edit.type==='correct')) editorAction('text-confirmed', {elementType: edit.type, id: S.selected});
+  else editorAction('inline-cancelled', {elementType: edit.type});
 }
-function addElement(e) { checkpoint(); e.id=uid();page().elements.push(e);S.selected=e.id;tool('move');drawElements();listPages();status('Elemento aggiunto. Trascinalo per spostarlo.'); }
+function addElement(e) { checkpoint(); e.id=uid();page().elements.push(e);S.selected=e.id;tool('move');drawElements();listPages();status('Elemento aggiunto. Trascinalo per spostarlo.');editorAction('element-added', {elementType: e.type, id: e.id}); }
 function measuredText(text, size, maxWidth=350) {
   const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');ctx.font=`${size}px Arial`;
   const width=Math.min(maxWidth,Math.max(80,...text.split('\n').map(s=>ctx.measureText(s).width+8)));
@@ -252,6 +258,7 @@ function pointerUp(event){
   if(!S.drag)return;const d=S.drag;S.drag=null;
   if($('paper').hasPointerCapture(event.pointerId))$('paper').releasePointerCapture(event.pointerId);
   $('selection').hidden=true;
+  if(d.changed && d.kind !== 'area') editorAction(d.kind==='resize'?'element-resized':'element-moved', {id:S.selected});
   if(d.kind==='area'){
     const pt=coordinates(event),x=clamp(Math.min(pt.x,d.start.x),0,S.width),y=clamp(Math.min(pt.y,d.start.y),0,S.height);
     const w=Math.min(Math.abs(pt.x-d.start.x),S.width-x),h=Math.min(Math.abs(pt.y-d.start.y),S.height-y);
@@ -313,14 +320,14 @@ async function exportPDF(){
       }
     }
     out.setTitle('Documento modificato');out.setProducer('E.Do. — Editor Documenti');
-    download(await out.save(),'application/pdf',S.name.replace(/\.pdf$/i,'')+'_modificato.pdf');status('PDF scaricato. Salva anche il progetto se vuoi riprendere le aggiunte.');
+    download(await out.save(),'application/pdf',S.name.replace(/\.pdf$/i,'')+'_modificato.pdf');status('PDF scaricato. Salva anche il progetto se vuoi riprendere le aggiunte.');editorAction('pdf-exported');
   });
 }
 function toBase64(bytes){let result='';for(let i=0;i<bytes.length;i+=32768)result+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(result);}
 function fromBase64(string){return Uint8Array.from(atob(string),c=>c.charCodeAt(0));}
 async function saveProject(){commitInline();await busy('Salvo il progetto modificabile…',async()=>{
   const project={format:'pdf-fast-editor',version:1,name:S.name,pages:S.pages,sources:S.sources.map(s=>({name:s.name,data:toBase64(s.bytes)}))};
-  download(JSON.stringify(project),'application/json',S.name.replace(/\.pdf$/i,'')+'.pdfe.json');S.dirty=false;updateUI();status('Progetto salvato. Contiene anche il PDF originale: conservalo per te.');
+  download(JSON.stringify(project),'application/json',S.name.replace(/\.pdf$/i,'')+'.pdfe.json');S.dirty=false;updateUI();status('Progetto salvato. Contiene anche il PDF originale: conservalo per te.');editorAction('project-saved');
 });}
 async function loadProject(file){
   if(!file)return;if(S.dirty&&!confirm('Aprire il progetto e lasciare le modifiche attuali?'))return;
@@ -342,6 +349,7 @@ async function loadProject(file){
     for(const p of project.pages)if(!p.blank&&p.number>sources[p.source].pdf.numPages)throw Error('Pagina non presente nel documento originale.');
     for(const s of S.sources)s.pdf.destroy();S.sources=sources;S.pages=project.pages;S.name=String(project.name||'documento.pdf');S.history=[];S.index=0;S.selected=null;S.dirty=false;S.zoom=1;
     await render();status('Progetto riaperto: puoi continuare a spostare le tue aggiunte.');
+    editorAction('document-opened');
   });
 }
 async function demo(){
@@ -409,8 +417,8 @@ $('apply').onclick=()=>{const e=element();if(!e)return;const size=Number($('elem
 function resizeElement(factor){const e=element();if(!e)return;checkpoint();const f=Math.min(factor,(S.width-e.x)/e.w,(S.height-e.y)/e.h);e.w=Math.max(15,e.w*f);e.h=Math.max(10,e.h*f);if(['text','correct'].includes(e.type))e.size=clamp(e.size*f,6,100);drawElements();}
 $('smaller').onclick=()=>resizeElement(1/1.15);$('bigger').onclick=()=>resizeElement(1.15);
 $('delete-element').onclick=()=>{if(!element())return;checkpoint();page().elements=page().elements.filter(e=>e.id!==S.selected);S.selected=null;drawElements();listPages();};
-$('undo').onclick=async()=>{const old=S.history.pop();if(!old)return;S.pages=old.pages;S.index=old.index;S.selected=null;S.dirty=true;await render();status('Ultima modifica annullata.');};
-$('rotate').onclick=async()=>{checkpoint();page().rotation=(page().rotation+90)%360;await render();};
+$('undo').onclick=async()=>{const old=S.history.pop();if(!old)return;S.pages=old.pages;S.index=old.index;S.selected=null;S.dirty=true;await render();status('Ultima modifica annullata.');editorAction('undo');};
+$('rotate').onclick=async()=>{checkpoint();page().rotation=(page().rotation+90)%360;await render();editorAction('page-rotated');};
 async function movePage(delta){const target=S.index+delta;if(target<0||target>=S.pages.length)return;checkpoint();[S.pages[S.index],S.pages[target]]=[S.pages[target],S.pages[S.index]];S.index=target;S.selected=null;await render();}
 $('pagebefore').onclick=()=>movePage(-1);$('pageafter').onclick=()=>movePage(1);
 $('delete-page').onclick=async()=>{if(S.pages.length<2)return;if(!confirm(`Eliminare pagina ${S.index+1}? Puoi annullare l’operazione.`))return;checkpoint();S.pages.splice(S.index,1);S.index=Math.min(S.index,S.pages.length-1);S.selected=null;await render();};
@@ -426,5 +434,6 @@ let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);
 window.addEventListener('unhandledrejection',event=>{console.error(event.reason);toast(event.reason?.message||'Operazione non riuscita. Riprova.');});
 // Debug state is local-only and useful for reproducible browser QA.
 window.pdfEditor={state:S,demo,render,exportPDF,rasterize,beginInline,commitInline};
+editorAction('ready');
 updateUI();
 if(new URLSearchParams(location.search).has('demo'))demo();

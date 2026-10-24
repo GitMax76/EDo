@@ -1,0 +1,23 @@
+/* The tour leaves the real controls usable: no backdrop and no modal overlay. */
+body.edo-tour-running{padding-bottom:var(--tour-space,240px)}
+.edo-tour-running .signature-dialog{top:0;bottom:auto;margin:8px auto 0;max-height:calc(var(--tour-view-height,100dvh) - var(--tour-space,240px) - 20px)}
+.tour-panel{position:fixed;z-index:160;border:2px solid #16785f;border-radius:14px;background:#fff;color:#1c3046;padding:11px 13px;box-shadow:0 6px 28px #163a3430;overflow:auto;overscroll-behavior:contain;font-family:Inter,'Segoe UI',Arial,sans-serif;line-height:1.35}
+.tour-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:#52646b}
+.tour-panel button{font-size:14px;padding:7px 10px;min-height:40px;line-height:1.25}.tour-top button{font-size:13px;min-height:34px;padding:4px 6px}
+.tour-route{display:block;font-size:0;margin:5px 0}.tour-route select{width:100%;border:1px solid #aecabd;background:#f4f8f6;border-radius:7px;padding:7px;color:#24453b;font-size:14px;min-height:36px}
+.tour-panel h2{font-size:20px;margin:8px 0 6px;line-height:1.2}.tour-panel p{font-size:16px;line-height:1.4;margin:6px 0 11px;color:#334d44}
+.tour-actions{display:flex;flex-wrap:wrap;gap:7px}.tour-actions button{flex:1 1 42%}.tour-actions #guide-next{color:#52646b;font-size:13px}
+.tour-writing .tour-route{display:none}.extra-large .tour-panel p{font-size:18px}
+#guide-spotlight{position:fixed;z-index:151;pointer-events:none;border:3px solid #16785f;border-radius:9px;box-shadow:0 0 0 4px #fff,0 0 0 8px #16785f44;animation:tour-pulse 1.6s ease-in-out infinite}
+#guide-gesture{position:fixed;z-index:152;pointer-events:none;overflow:visible;opacity:.8}
+.tour-finger{position:absolute;left:0;top:0;width:30px;height:36px;filter:drop-shadow(0 1px 2px #fff);animation:tour-drag 2.2s ease-in-out infinite}
+.tour-drag-area{position:absolute;left:12px;top:10px;width:130px;height:55px;border:2px dashed #16785f;background:#b7e1c84d;animation:tour-box 2.2s ease-in-out infinite;transform-origin:0 0}
+#guide-gesture[data-mode=tap] .tour-finger{left:calc(50% - 15px);top:calc(50% - 18px);animation:tour-tap 1.6s ease-in-out infinite}
+#guide-gesture[data-mode=tap] .tour-drag-area,#guide-gesture[data-mode=move] .tour-drag-area,#guide-gesture[data-mode=resize] .tour-drag-area{display:none}
+#guide-gesture[data-mode=resize] .tour-finger{animation:tour-resize 2s ease-in-out infinite}
+@keyframes tour-pulse{50%{box-shadow:0 0 0 4px #fff,0 0 0 11px #16785f20}}
+@keyframes tour-drag{0%,15%{transform:translate(0,0);opacity:0}25%{opacity:1}75%,90%{transform:translate(105px,42px);opacity:1}100%{transform:translate(105px,42px);opacity:0}}
+@keyframes tour-box{0%,20%{transform:scale(.05);opacity:0}25%{opacity:1}75%,90%{transform:scale(1);opacity:1}100%{opacity:0}}
+@keyframes tour-tap{0%,100%{transform:scale(1);opacity:.3}50%{transform:scale(.85);opacity:1}}
+@keyframes tour-resize{0%,20%{transform:translate(-10px,-10px);opacity:.3}70%,100%{transform:translate(20px,20px);opacity:1}}
+@media(prefers-reduced-motion:reduce){#guide-spotlight,.tour-finger,.tour-drag-area{animation:none}.tour-finger{transform:translate(45px,20px)}}

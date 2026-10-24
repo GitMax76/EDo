@@ -29,7 +29,7 @@ Con **Sposta gli elementi** trascini le aggiunte. Il doppio clic su un tuo testo
 
 ## Guida iniziale e aggiunta alla Home
 
-Al primo accesso viene mostrata una guida in sei passaggi, che puoi saltare e richiamare da **Come funziona**. La scelta viene ricordata nel browser quando è disponibile la memoria locale. Consultare la guida non modifica il PDF aperto; il documento di esempio è proposto soltanto quando non stai già lavorando a un documento.
+Al primo accesso parte una guida interattiva che evidenzia i comandi reali senza bloccare l’app. Il percorso avanza dopo azioni riuscite: apertura del PDF, scelta dello strumento, disegno e conferma del testo, spostamento, inserimento e ritaglio della firma, download e salvataggio del progetto. Le animazioni mostrano dove toccare o come trascinare; **Mostra dove** riporta al comando. Puoi saltare un argomento o uscire in qualsiasi momento. Il menu della guida offre anche percorsi mirati per firma, bianchetto e rotazione di una pagina. **Come funziona** la riapre senza sostituire il documento aperto. L’esempio viene caricato soltanto su richiesta e quando non c’è già un documento. La scelta di uscire o completare viene ricordata nel browser quando è disponibile la memoria locale.
 
 **Aggiungi alla Home** mostra istruzioni per iPhone/iPad, Android e computer. Sui browser che rendono disponibile la richiesta di installazione compare anche **Installa E.Do.**; altrimenti puoi usare il menu del browser. Il manifest contiene nome, icone e apertura in una finestra dedicata. Per aprire E.Do. serve Internet: l'aggiunta dell'icona non introduce una modalità offline. PDF e immagini continuano a essere elaborati sul dispositivo.
 

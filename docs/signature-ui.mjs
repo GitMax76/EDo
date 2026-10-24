@@ -1,4 +1,5 @@
 import {cleanSignature, inkBounds, adjustCrop} from './signature.mjs';
+const signatureAction = (type, detail = {}) => window.dispatchEvent(new CustomEvent('edo:action', {detail: {type, ...detail}}));
 
 export async function prepareSignature(data) {
   const image = new Image(); image.src = data; await image.decode();
@@ -95,7 +96,7 @@ export async function prepareSignature(data) {
       drag.changed = true;
       setCrop(adjustCrop(drag.old, drag.mode, drag.handle, drag.start, p, source.width, source.height));
     };
-    cropFrame.onpointerup = event => { if (!drag || drag.id !== event.pointerId) return; if (drag.changed) setDrawing(false); drag = null; if(cropFrame.hasPointerCapture(event.pointerId)) cropFrame.releasePointerCapture(event.pointerId); };
+    cropFrame.onpointerup = event => { if (!drag || drag.id !== event.pointerId) return; if (drag.changed) {setDrawing(false);signatureAction('signature-cropped');} drag = null; if(cropFrame.hasPointerCapture(event.pointerId)) cropFrame.releasePointerCapture(event.pointerId); };
     cropFrame.onpointercancel = () => { if (drag) setCrop(drag.old); drag = null; };
     cropFrame.onlostpointercapture = cropFrame.onpointercancel;
     for (const button of dialog.querySelectorAll('[data-handle]')) button.onkeydown = event => {
@@ -104,6 +105,7 @@ export async function prepareSignature(data) {
       const step = (event.shiftKey ? 10 : 2) * source.width / source.getBoundingClientRect().width;
       const end = {x: event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0, y: event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0};
       setCrop(adjustCrop(crop, 'resize', button.dataset.handle, {x: 0, y: 0}, end, source.width, source.height)); setDrawing(false);
+      signatureAction('signature-cropped');
     };
     find('[data-action="newcrop"]').onclick = () => { setDrawing(true); find('.signature-crop-stage').scrollIntoView({block: 'center', behavior: 'smooth'}); };
     margins.forEach(input => input.onchange = () => {
@@ -111,6 +113,7 @@ export async function prepareSignature(data) {
       if (left + right >= .99 || top + bottom >= .99) { setCrop(crop); return; }
       setCrop({x: Math.floor(left * source.width), y: Math.floor(top * source.height), w: Math.max(1, Math.floor((1 - left - right) * source.width)), h: Math.max(1, Math.floor((1 - top - bottom) * source.height))});
       setDrawing(false);
+      signatureAction('signature-cropped');
     });
     dialog.querySelectorAll('[data-setting]').forEach(input => input.oninput = schedule);
     find('[data-action="eraser"]').onclick = event => {
@@ -140,7 +143,7 @@ export async function prepareSignature(data) {
       return canvas.toDataURL('image/png');
     };
     let settled = false;
-    const finish = value => { if (settled) return; settled = true; if (frame) cancelAnimationFrame(frame); dialog.close(); dialog.remove(); resolve(value); };
+    const finish = value => { if (settled) return; settled = true; if (frame) cancelAnimationFrame(frame); signatureAction('signature-closed', {cancelled:value===null}); dialog.close(); dialog.remove(); resolve(value); };
     dialog.oncancel = event => { event.preventDefault(); finish(null); };
     find('[data-action="cancel"]').onclick = () => finish(null);
     find('[data-action="original"]').onclick = () => finish(data);
@@ -158,6 +161,7 @@ export async function prepareSignature(data) {
       setCrop({x: 0, y: 0, w: source.width, h: source.height});
       if(frame) cancelAnimationFrame(frame); update();
       dialog.showModal();
+      signatureAction('signature-opened');
     } catch (error) { if (frame) cancelAnimationFrame(frame); dialog.remove(); reject(error); }
   });
 }

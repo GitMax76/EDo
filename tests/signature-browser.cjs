@@ -15,7 +15,7 @@ async function run(engine, mobile=false) {
   try {
     const page=await browser.newPage(mobile?{viewport:{width:390,height:844},isMobile:true,hasTouch:true}:{viewport:{width:1280,height:900}});
     const errors=[]; page.on('pageerror',e=>errors.push(e.message));
-    await page.addInitScript(()=>localStorage.setItem('edo-guide-v1-seen','true'));
+    await page.addInitScript(()=>localStorage.setItem('edo-guide-v2-seen','true'));
     await page.goto(`http://127.0.0.1:${server.address().port}`);
     await page.waitForFunction(()=>window.prepareSignature);
     await page.evaluate(()=>{

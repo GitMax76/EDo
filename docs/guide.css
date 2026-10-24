@@ -1,23 +1,10 @@
 .edo-guide{max-width:580px;width:calc(100% - 24px);max-height:92dvh;padding:24px;overflow:auto}
 .edo-guide h2{font-size:27px;line-height:1.2;margin:16px 0}
-.edo-guide h2:focus{outline:none}.edo-guide p,.edo-guide li{font-size:17px;line-height:1.5}
-.guide-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#52646b;font-size:15px}
-.guide-top button{font-size:15px;padding:6px 10px;min-height:44px}
-.guide-visual{display:flex;justify-content:center;align-items:center;background:#ecf5ef;border-radius:14px;height:150px;margin:16px 0}
-.guide-sheet{position:relative;width:95px;height:118px;padding:12px;background:#fffdf5;border:1px solid #b5d2c2;border-radius:7px 18px 7px 7px;box-shadow:5px 5px 0 #d3e5d9;transform:rotate(-4deg);text-align:center}
-.guide-sheet span{display:block;font:bold 40px Georgia,serif;color:#16785f;height:54px}
-.guide-sheet i{display:block;height:4px;margin:8px 0;background:#d7e5dc;border-radius:4px}
-.guide-sheet b{position:absolute;bottom:-9px;left:50%;transform:translateX(-50%) rotate(4deg);background:#16785f;color:white;padding:5px 10px;border-radius:6px;font-size:10px;letter-spacing:1px}
-.guide-target{padding:11px 14px;border:1px solid #a5c4b3;border-radius:9px;color:#12563f;background:#f1f8f3;font-size:17px;font-weight:700}
-.guide-target::before{content:'Il comando da usare';display:block;font-size:12px;font-weight:500;color:#52646b;margin-bottom:3px}
+.edo-guide p,.edo-guide li{font-size:17px;line-height:1.5}
 .edo-guide .guide-tip{font-size:15px;line-height:1.5;color:#52646b}
-.guide-navigation{display:flex;gap:12px;justify-content:space-between;margin-top:22px;position:sticky;bottom:-24px;background:white;padding:12px 0}
-.guide-navigation button{min-width:100px;font-size:17px}
-#guide-last{display:flex;gap:8px;flex-wrap:wrap}#guide-last button{font-size:16px;flex:1 1 40%}#guide-last .link{flex-basis:100%}
 .install-platforms{display:flex;gap:6px;flex-wrap:wrap}.install-platforms button{flex:1;padding:9px;font-size:16px}
 .install-platforms [aria-pressed=true]{background:#e0f2e7;border:2px solid #16785f}
 #install-steps{padding-left:24px}#install-steps li{padding-left:4px;margin:14px 0}
 #install-close{margin-top:10px}.documentbar #add-home{color:#185a43}
 .welcome #welcome-install{margin-top:4px;font-size:17px}
-@media(max-width:650px){.edo-guide{padding:18px}.guide-visual{height:110px;margin:12px 0}.guide-sheet{transform:scale(.8) rotate(-4deg)}.edo-guide h2{font-size:25px}.guide-navigation{bottom:-18px}.guide-navigation button{font-size:16px}}
-@media(max-height:700px){.guide-visual{height:80px;margin:8px 0}.guide-sheet{transform:scale(.6) rotate(-4deg)}}
+@media(max-width:650px){.edo-guide{padding:18px}.edo-guide h2{font-size:25px}}
