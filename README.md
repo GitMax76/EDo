@@ -27,6 +27,12 @@ Puoi anche scaricare il codice, estrarre tutti i file e fare doppio clic su **AV
 
 Con **Sposta gli elementi** trascini le aggiunte. Il doppio clic su un tuo testo lo rende nuovamente scrivibile.
 
+## Guida iniziale e aggiunta alla Home
+
+Al primo accesso viene mostrata una guida in sei passaggi, che puoi saltare e richiamare da **Come funziona**. La scelta viene ricordata nel browser quando è disponibile la memoria locale. Consultare la guida non modifica il PDF aperto; il documento di esempio è proposto soltanto quando non stai già lavorando a un documento.
+
+**Aggiungi alla Home** mostra istruzioni per iPhone/iPad, Android e computer. Sui browser che rendono disponibile la richiesta di installazione compare anche **Installa E.Do.**; altrimenti puoi usare il menu del browser. Il manifest contiene nome, icone e apertura in una finestra dedicata. Per aprire E.Do. serve Internet: l'aggiunta dell'icona non introduce una modalità offline. PDF e immagini continuano a essere elaborati sul dispositivo.
+
 ## Foto della firma
 
 Con **Immagine o firma** scegli una foto. Puoi inserirla invariata con **Usa immagine originale**, oppure disegnare un riquadro intorno alla firma, eliminando tavolo e contorni del foglio. Trascina i pallini sugli angoli e sui bordi per regolarlo, oppure trascina al suo interno per spostarlo. La foto si adatta allo schermo anche se verticale. Con **Disegna nuovo ritaglio** ricominci la selezione; **Tutta la foto** la ripristina. Le percentuali rimangono nelle opzioni avanzate; i pallini si possono regolare anche con i tasti freccia (Maiusc per passi più grandi). La pulizia rende trasparente il fondo e nero il tratto, con regolazioni per le ombre e i tratti leggeri. Usa la gomma nell'anteprima per cancellare eventuali segni estranei: il filtro non riconosce semanticamente la firma e non garantisce la rimozione automatica di ogni oggetto. Prima di inserire o scaricare il PNG, verifica che restino soltanto i tratti della firma. La scacchiera è solo un'indicazione della trasparenza e non viene esportata. L'output viene ritagliato attorno ai tratti rimasti, con un piccolo margine trasparente.

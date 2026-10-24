@@ -6,6 +6,9 @@
 <link rel="icon" href="./favicon.ico" sizes="any">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="theme-color" content="#116a54">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="E.Do.">
 <link rel="canonical" href="https://gitmax76.github.io/EDo/">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="it_IT">
@@ -26,7 +29,7 @@
 <meta name="twitter:image:alt" content="E.Do.: un documento sorridente con una matita, per modificare i PDF con semplicita.">
 <title>E.Do. — Editor Documenti</title>
 <meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; connect-src 'self' blob: data: https://edofa-feedback.massi-sabato.workers.dev; img-src 'self' data: blob:; font-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action https://github.com"><meta name="description" content="Editor PDF personale: aggiungi e sposta testo e immagini, correggi e gestisci le pagine. Elaborazione nel browser.">
-<link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./leggibile.css">
+<link rel="stylesheet" href="./style.css"><link rel="stylesheet" href="./leggibile.css"><link rel="stylesheet" href="./guide.css">
 <script src="./vendor/pdf-lib.min.js" defer></script>
 <script type="module" src="./app.js"></script>
 </head>
@@ -36,7 +39,7 @@
   <div class="privacy"><span class="dot"></span>I file restano sul tuo dispositivo</div>
   <div class="header-actions"><button id="large-ui" aria-pressed="false" title="Ingrandisci il testo dei pulsanti e delle istruzioni">Testo più grande</button><button id="open">Apri PDF</button><button class="primary" id="export" disabled>Scarica PDF <span>↓</span></button></div>
 </header>
-<div class="documentbar"><div><span class="badge">VERSIONE WEB</span> <strong id="filename">Il tuo prossimo PDF, pronto da sistemare.</strong><span id="unsaved"></span></div><div><button id="undo" class="quiet" disabled>↶ Annulla</button><button id="help" class="quiet">Come funziona</button><button id="feedback-open" class="quiet">Suggerimenti e feedback</button></div></div>
+<div class="documentbar"><div><span class="badge">VERSIONE WEB</span> <strong id="filename">Il tuo prossimo PDF, pronto da sistemare.</strong><span id="unsaved"></span></div><div><button id="undo" class="quiet" disabled>↶ Annulla</button><button id="help" class="quiet">Come funziona</button><button id="add-home" class="quiet">Aggiungi alla Home</button><button id="feedback-open" class="quiet">Suggerimenti e feedback</button></div></div>
 <main>
   <aside class="tools">
     <div class="section-label">SCEGLI UNO STRUMENTO</div>
@@ -61,6 +64,7 @@
         <p>Il tuo PDF, con pochi semplici gesti.</p>
         <button class="primary large" id="welcome-open">+ Apri il tuo PDF</button>
         <button class="link" id="demo">Oppure prova con un esempio →</button>
+        <button class="link" id="welcome-install">Aggiungi E.Do. alla Home</button>
         <div class="welcome-foot">Puoi anche trascinare un PDF in questa finestra</div>
       </div>
       <div id="rotationBox" hidden><div id="paper"><canvas id="pdfcanvas"></canvas><div id="layer"></div><div id="selection" hidden></div><div id="inline-editor" hidden><textarea id="inline-text" aria-label="Scrivi direttamente sulla pagina" placeholder="Scrivi qui…" spellcheck="true"></textarea><div class="inline-actions"><button id="inline-done" type="button">Fatto ✓</button><button id="inline-cancel" type="button">Annulla</button></div></div></div></div>
@@ -104,4 +108,4 @@
 <div class="dialog-actions"><button id="feedback-cancel" type="button">Torna all'app</button><button id="feedback-submit" class="primary" type="submit">Invia feedback</button></div>
 </form></dialog><div id="busy" hidden><div class="spinner"></div><strong id="busytext">Un momento…</strong></div>
 <div id="toast" role="alert" hidden></div>
-<script src="./ui-settings.js" defer></script><script src="./feedback.js" defer></script></body></html>
+<script src="./ui-settings.js" defer></script><script src="./feedback.js" defer></script><script src="./guide.js" defer></script></body></html>

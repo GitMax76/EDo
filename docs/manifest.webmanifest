@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "E.Do. — Editor Documenti",
+  "short_name": "E.Do.",
+  "description": "Apri, modifica e salva i tuoi PDF. Elaborazione sul dispositivo.",
+  "lang": "it",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f9fa",
+  "theme_color": "#116a54",
+  "icons": [
+    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "./logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+  ]
+}

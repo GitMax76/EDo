@@ -418,7 +418,7 @@ $('blank').onclick=async()=>{checkpoint();S.pages.splice(S.index+1,0,{blank:true
 $('prev').onclick=()=>navigate(S.index-1);$('next').onclick=()=>navigate(S.index+1);
 $('zoomin').onclick=()=>{S.zoom=Math.min(3,S.zoom*1.15);render();};$('zoomout').onclick=()=>{S.zoom=Math.max(.3,S.zoom/1.15);render();};$('fit').onclick=()=>{S.zoom=1;render();};
 $('export').onclick=exportPDF;$('save-project').onclick=saveProject;$('load-project').onclick=()=>$('project-input').click();$('project-input').onchange=e=>{loadProject(e.target.files[0]);e.target.value='';};
-$('demo').onclick=demo;$('help').onclick=()=>$('info-dialog').showModal();$('close-info').onclick=()=>$('info-dialog').close();
+$('demo').onclick=demo;$('close-info').onclick=()=>$('info-dialog').close();
 document.addEventListener('dragover',e=>{e.preventDefault();});document.addEventListener('drop',e=>{e.preventDefault();const file=e.dataTransfer.files[0];if(file?.name.toLowerCase().endsWith('.pdf'))openPDF(file);});
 window.addEventListener('beforeunload',e=>{if(S.dirty){e.preventDefault();e.returnValue='';}});
 document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea')||document.querySelector('dialog[open]'))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();$('undo').click();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(page())saveProject();}if(e.key==='Delete'&&element())$('delete-element').click();});

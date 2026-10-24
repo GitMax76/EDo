@@ -25,6 +25,8 @@ jobs:
           npx playwright install --with-deps chromium webkit
       - name: Verifica firma su desktop e telefono
         run: node tests/signature-browser.cjs
+      - name: Verifica guida iniziale e aggiunta alla Home
+        run: node tests/guide-browser.cjs
   publish:
     needs: signature
     if: github.ref == 'refs/heads/main'
@@ -45,6 +47,7 @@ jobs:
           node --check docs/ui-settings.js
           node --check docs/signature.mjs
           node --check docs/signature-ui.mjs
+          node --check docs/guide.js
           node --test tests/*.test.cjs
           python3 -m unittest discover -s tests -p 'test_weekly_report.py'
       - uses: actions/configure-pages@v5
