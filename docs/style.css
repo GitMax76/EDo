@@ -4,7 +4,8 @@
 .signature-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
 .signature-grid section{min-width:0}.signature-grid h3{font-size:16px}
 .signature-source{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair}
-.signature-crop-frame{position:relative;width:min(100%,calc(46dvh * var(--signature-aspect,1)));margin:26px auto;touch-action:none;user-select:none}
+.signature-crop-stage{padding:24px 22px;background:#f3f7f5;border-radius:10px;margin:14px 0}
+.signature-crop-frame{position:relative;width:min(100%,calc((46dvh - 48px) * var(--signature-aspect,1)));margin:0 auto;touch-action:none;user-select:none}
 .signature-crop-outline{position:absolute;border:2px solid #16785f;pointer-events:none}
 .signature-dialog .signature-crop-handle{position:absolute;transform:translate(-50%,-50%);width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:50%;background:transparent;box-shadow:none;touch-action:none;z-index:1}
 .signature-crop-handle::after{content:'';display:block;width:16px;height:16px;margin:auto;border-radius:50%;border:2px solid #fff;background:#16785f;box-shadow:0 0 0 1px #16785f}

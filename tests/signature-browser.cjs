@@ -64,9 +64,10 @@ async function run(engine, mobile=false) {
     // rather than sitting below a tall canvas that needs scrolling.
     await page.evaluate(()=>{const c=document.createElement('canvas');c.width=800;c.height=1600;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.fillStyle='#000';x.fillRect(100,800,300,3);window.landscape=window.original;window.original=c.toDataURL();});
     await page.click('#open');await page.waitForSelector('dialog[open]');
-    await page.locator('.signature-crop-frame').scrollIntoViewIfNeeded();
+    await page.locator('.signature-crop-stage').scrollIntoViewIfNeeded();
     const portrait=await page.locator('.signature-source').boundingBox();assert.ok(portrait.height<=page.viewportSize().height*.46+2,'portrait photo is bounded by viewport height');
     const visible=await page.locator('.signature-source').evaluate(e=>{const r=e.getBoundingClientRect(),d=e.closest('dialog').getBoundingClientRect();return r.top>=Math.max(0,d.top)&&r.bottom<=Math.min(innerHeight,d.bottom);});assert.equal(visible,true,'whole photo visible while dragging');
+    assert.equal(await page.locator('[data-handle]').evaluateAll(buttons=>buttons.every(e=>{const r=e.getBoundingClientRect(),d=e.closest('dialog').getBoundingClientRect();return r.top>=Math.max(0,d.top)&&r.bottom<=Math.min(innerHeight,d.bottom)&&r.left>=d.left&&r.right<=d.right;})),true,'all crop handles visible with the portrait photo');
     await page.click('[data-action="cancel"]');await page.evaluate(()=>window.original=window.landscape);
     const original=await page.evaluate(()=>window.original);
     await page.goto(`http://127.0.0.1:${server.address().port}/docs/index.html?demo`);

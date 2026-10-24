@@ -9,11 +9,11 @@ export async function prepareSignature(data) {
       <p>Per una foto normale scegli <b>Usa immagine originale</b>. Per una firma, ritaglia l’area sul foglio ed elimina lo sfondo.</p>
       <div class="signature-grid"><section><h3>1. Ritaglia intorno alla firma</h3>
       <p>Disegna un riquadro intorno alla firma. Poi trascina i pallini per regolare i bordi, oppure l’interno per spostarlo.</p>
-      <div class="signature-crop-frame">
+      <div class="signature-crop-stage"><div class="signature-crop-frame">
       <canvas class="signature-source" aria-label="Foto originale: trascina per scegliere o spostare il ritaglio"></canvas>
       <div class="signature-crop-outline" aria-hidden="true"></div>
       ${[['nw','Angolo in alto a sinistra'],['n','Bordo superiore'],['ne','Angolo in alto a destra'],['e','Bordo destro'],['se','Angolo in basso a destra'],['s','Bordo inferiore'],['sw','Angolo in basso a sinistra'],['w','Bordo sinistro']].map(([position,label]) => `<button type="button" class="signature-crop-handle" data-handle="${position}" aria-label="${label} del ritaglio" title="${label}: trascina o usa i tasti freccia"></button>`).join('')}
-      </div>
+      </div></div>
       <p class="signature-crop-hint" role="status">Trascina sulla foto per selezionare la firma.</p>
       <div class="signature-crop-actions"><button type="button" data-action="newcrop" aria-pressed="true">Disegna nuovo ritaglio</button><button type="button" data-action="reset">Tutta la foto</button></div>
       <details><summary>Opzioni avanzate: percentuali</summary><div class="signature-margins">
@@ -105,7 +105,7 @@ export async function prepareSignature(data) {
       const end = {x: event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0, y: event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0};
       setCrop(adjustCrop(crop, 'resize', button.dataset.handle, {x: 0, y: 0}, end, source.width, source.height)); setDrawing(false);
     };
-    find('[data-action="newcrop"]').onclick = () => { setDrawing(true); cropFrame.scrollIntoView({block: 'center', behavior: 'smooth'}); };
+    find('[data-action="newcrop"]').onclick = () => { setDrawing(true); find('.signature-crop-stage').scrollIntoView({block: 'center', behavior: 'smooth'}); };
     margins.forEach(input => input.onchange = () => {
       const [left, top, right, bottom] = margins.map(m => Math.max(0, Math.min(99, Number(m.value) || 0)) / 100);
       if (left + right >= .99 || top + bottom >= .99) { setCrop(crop); return; }
