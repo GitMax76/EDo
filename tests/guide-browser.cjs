@@ -28,6 +28,11 @@ async function check(engine,mobile=false){
       return r;
     };
     async function draw(){const r=await noOverlap();await drag(r.x+15,r.y+15,Math.min(140,r.width-30),Math.min(48,r.height-25));}
+    async function tapPaper(){
+      await page.waitForFunction(()=>{const r=document.getElementById('guide-spotlight').getBoundingClientRect();return document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.closest('#paper')&&window.pdfEditor.state.tool==='image';});
+      const point=await page.locator('#guide-spotlight').evaluate(e=>{const r=e.getBoundingClientRect(),p=document.getElementById('paper').getBoundingClientRect();return {x:r.left+r.width/2-p.left,y:r.top+r.height/2-p.top};});
+      if(mobile)await page.locator('#paper').tap({position:point});else await page.locator('#paper').click({position:point});
+    }
     await page.goto(url);await page.waitForSelector('#guide-panel:not([hidden])');await wait('open');
     assert.equal(await page.locator('dialog[open]').count(),0,'tour has no modal backdrop');
     assert.equal(await page.locator('#open').isEnabled(),true,'actual app button is usable');
@@ -43,14 +48,14 @@ async function check(engine,mobile=false){
     await tap('[data-tool="text"]');await wait('textDraw');assert.equal(await page.locator('#guide-gesture').isVisible(),true);
     await draw();await wait('textWrite');assert.equal(await page.locator('#inline-text').isVisible(),true);
     await page.locator('#inline-text').fill('Nota guidata');await settle();assert.equal(await step(),'textWrite','typing alone does not complete the step');
+    if(mobile){await page.setViewportSize({width:390,height:500});await page.waitForTimeout(350);await settle();await noOverlap();assert.equal(await step(),'textWrite','keyboard-sized height change must not commit the draft');assert.equal(await page.locator('#inline-text').inputValue(),'Nota guidata');await page.setViewportSize({width:390,height:844});await settle();}
     await noOverlap();await tap('#inline-done');await wait('move');
     const text=await page.evaluate(()=>window.pdfEditor.state.pages[0].elements.find(e=>e.text==='Nota guidata'));
     assert.ok(text);const t=await page.locator(`[data-id="${text.id}"]`).boundingBox();
     await drag(t.x+t.width/2,t.y+t.height/2,18,16);await wait('imageTool');
     await tap('[data-tool="image"]');await wait('imagePlace');
     const image=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=800;c.height=400;const x=c.getContext('2d');x.fillStyle='#654321';x.fillRect(0,0,800,400);x.fillStyle='#eee';x.fillRect(80,40,640,320);x.strokeStyle='#15255e';x.lineWidth=4;x.beginPath();x.moveTo(240,210);x.bezierCurveTo(330,130,420,260,550,190);x.stroke();return c.toDataURL();});
-    const place=await noOverlap(),photo=page.waitForEvent('filechooser');
-    if(mobile)await page.touchscreen.tap(place.x+place.width/2,place.y+place.height/2);else await page.mouse.click(place.x+place.width/2,place.y+place.height/2);
+    await noOverlap();const photo=page.waitForEvent('filechooser');await tapPaper();
     await (await photo).setFiles({name:'firma.png',mimeType:'image/png',buffer:Buffer.from(image.split(',')[1],'base64')});
     await wait('imageCrop');assert.equal(await page.locator('.signature-dialog #guide-panel').count(),1,'coach remains interactive in signature dialog');
     await noOverlap();const crop=await page.locator('.signature-source').boundingBox();
@@ -68,7 +73,7 @@ async function check(engine,mobile=false){
     assert.equal(await page.evaluate(()=>localStorage.getItem('edo-guide-v2-seen')),'true');
     await tap('#help');await wait('textTool');assert.equal(await page.evaluate(()=>JSON.stringify(window.pdfEditor.state.pages)),state,'reopening the tour does not modify the document');
     await page.selectOption('#guide-route','signature');await wait('imageTool');await tap('[data-tool="image"]');await wait('imagePlace');
-    const point=await noOverlap(),skipPhoto=page.waitForEvent('filechooser');await page.mouse.click(point.x+point.width/2,point.y+point.height/2);await (await skipPhoto).setFiles({name:'firma.png',mimeType:'image/png',buffer:Buffer.from(image.split(',')[1],'base64')});
+    await noOverlap();const skipPhoto=page.waitForEvent('filechooser');await tapPaper();await (await skipPhoto).setFiles({name:'firma.png',mimeType:'image/png',buffer:Buffer.from(image.split(',')[1],'base64')});
     await wait('imageCrop');await tap('#guide-next');await wait('download');assert.equal(await page.locator('.signature-dialog[open]').count(),0,'skipping a signature leaves no blocking modal');
     assert.equal(await page.evaluate(()=>JSON.stringify(window.pdfEditor.state.pages)),state,'skipping a photo does not alter the document');
     await page.selectOption('#guide-route','correction');await wait('correctTool');

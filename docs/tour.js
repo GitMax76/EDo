@@ -188,8 +188,9 @@
   $('guide-route').onchange=e=>{route=e.target.value;textId=imageId=null;writing=false;enter(loaded()?1:0);};
   $('help').onclick=()=>running?showTarget():start();
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&running&&!document.querySelector('dialog[open]')&&!e.target.matches('input,textarea,select')){e.preventDefault();stop();}});
-  window.addEventListener('scroll',schedule,true);window.addEventListener('resize',schedule);
-  window.visualViewport?.addEventListener('resize',schedule);window.visualViewport?.addEventListener('scroll',schedule);
+  const resized=()=>{schedule();if(running&&!paused&&!window.pdfEditor?.state.drag)requestAnimationFrame(showTarget);};
+  window.addEventListener('scroll',schedule,true);window.addEventListener('resize',resized);
+  window.visualViewport?.addEventListener('resize',resized);window.visualViewport?.addEventListener('scroll',schedule);
   new ResizeObserver(schedule).observe(panel);
   new MutationObserver(schedule).observe($('layer'),{childList:true});
   window.edoTour={start,stop,pause,resume,active:()=>running};

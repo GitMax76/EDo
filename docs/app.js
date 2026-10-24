@@ -6,7 +6,7 @@ const $ = id => document.getElementById(id);
 const {PDFDocument, StandardFonts, rgb, degrees} = PDFLib;
 const S = {sources: [], pages: [], index: 0, tool: 'move', selected: null, scale: 1, zoom: 1,
   history: [], dirty: false, name: 'documento.pdf', width: 595, height: 842, renderId: 0, textItems: [], drag: null};
-let toastTimer, imagePoint, renderTask, busyDepth = 0, inlineEdit = null;
+let toastTimer, imagePoint, renderTask, busyDepth = 0, inlineEdit = null, renderedViewerWidth = null;
 const clone = value => JSON.parse(JSON.stringify(value));
 const page = () => S.pages[S.index];
 const element = () => page()?.elements.find(e => e.id === S.selected);
@@ -107,6 +107,7 @@ async function render() {
   const rotated = p.rotation % 180 !== 0;
   const displayWidth = rotated ? S.height : S.width;
   const available = Math.max(180, $('viewer').clientWidth - (innerWidth < 760 ? 40 : 64));
+  renderedViewerWidth = $('viewer').clientWidth;
   S.scale = Math.min(2.5, available/displayWidth*S.zoom);
   const w = S.width*S.scale, h = S.height*S.scale;
   Object.assign($('paper').style, {width: `${w}px`, height: `${h}px`, transform: ({0:'none',90:`translate(${h}px,0) rotate(90deg)`,180:`translate(${w}px,${h}px) rotate(180deg)`,270:`translate(0,${w}px) rotate(270deg)`})[p.rotation]});
@@ -430,7 +431,9 @@ $('demo').onclick=demo;$('close-info').onclick=()=>$('info-dialog').close();
 document.addEventListener('dragover',e=>{e.preventDefault();});document.addEventListener('drop',e=>{e.preventDefault();const file=e.dataTransfer.files[0];if(file?.name.toLowerCase().endsWith('.pdf'))openPDF(file);});
 window.addEventListener('beforeunload',e=>{if(S.dirty){e.preventDefault();e.returnValue='';}});
 document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea')||document.querySelector('dialog[open]'))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();$('undo').click();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(page())saveProject();}if(e.key==='Delete'&&element())$('delete-element').click();});
-let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(page())render();},250);});
+// A phone keyboard changes viewport height, not PDF scale. Re-rendering on
+// that height change would commit the text being typed before the user is done.
+let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);if(!page()||$('viewer').clientWidth===renderedViewerWidth)return;resizeTimer=setTimeout(()=>{if(page())render();},250);});
 window.addEventListener('unhandledrejection',event=>{console.error(event.reason);toast(event.reason?.message||'Operazione non riuscita. Riprova.');});
 // Debug state is local-only and useful for reproducible browser QA.
 window.pdfEditor={state:S,demo,render,exportPDF,rasterize,beginInline,commitInline};
