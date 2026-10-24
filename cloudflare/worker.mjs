@@ -77,8 +77,8 @@ async function networkKey(db, ip, month) {
 function escapeHTML(text) {
   return String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-export function setupPage(message = '', status = 200) {
-  const command = '/collega ' + crypto.randomUUID();
+export function setupPage(message = '', status = 200, pairingId = crypto.randomUUID()) {
+  const command = '/collega ' + pairingId;
   const html = `<!doctype html><html lang="it"><meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1"><title>E.Do.-Fa | Telegram</title>
   <style>body{font:19px/1.6 system-ui;background:#f5f8f3;color:#172b42;margin:0;padding:24px}
@@ -88,7 +88,7 @@ export function setupPage(message = '', status = 200) {
   .notice{padding:14px;background:#fff3da;border-radius:10px}a{color:#116a54}</style>
   <main><h1>Collega la tua chat Telegram</h1>
   ${message ? '<p class="notice" role="status">'+escapeHTML(message)+'</p>' : ''}
-  <p>Configurazione del proprietario. Versione 4: copia da BotFather assistita. Non serve creare un'altra password.</p>
+  <p>Configurazione del proprietario. Versione 5: codice stabile e verifica connessione. Non serve creare un'altra password.</p>
   <ol><li>Tieni a portata di mano il token ricevuto da BotFather, gia salvato nel segreto TELEGRAM_BOT_TOKEN del tuo Worker.</li>
   <li>Apri la chat privata con il tuo bot e inviagli questo messaggio (puoi selezionarlo e copiarlo):<code>${command}</code></li>
   <li>Entro 15 minuti, incolla qui sotto il token di BotFather e premi il pulsante. Viene inviato solo a questo Worker Cloudflare tramite HTTPS, mai nell'indirizzo della pagina.</li></ol>
@@ -106,6 +106,7 @@ export function setupPage(message = '', status = 200) {
   <p>Il comando /collega non e il token. Il collegamento richiede entrambi e accetta solo chat private. Non modifica il limite mensile dei feedback.</p>
   <a href="https://gitmax76.github.io/EDo/">Torna a E.Do.-Fa</a></main></html>`;
   return new Response(html, {status, headers: {'Content-Type':'text/html; charset=utf-8',
+    'Set-Cookie':'edofa_pair='+pairingId+'; Path=/telegram; Max-Age=900; HttpOnly; Secure; SameSite=Strict',
     'Cache-Control':'no-store','Referrer-Policy':'same-origin','X-Content-Type-Options':'nosniff',
     'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"}});
 }
@@ -139,16 +140,31 @@ export async function authorizeTelegramSetup(data, env) {
   return {ok:true};
 }
 class TelegramError extends Error {}
-export async function telegramCall(token, method, data, send = fetch) {
+export async function telegramCall(token, method, data, send = (...args) => fetch(...args)) {
   if (!token) throw new TelegramError('Manca il segreto TELEGRAM_BOT_TOKEN in Production.');
   token = normalizeBotToken(token);
   if (!/^[0-9]+:[A-Za-z0-9_-]+$/.test(token)) throw new TelegramError('Formato del token non valido. In TELEGRAM_BOT_TOKEN inserisci solo la chiave di BotFather, senza virgolette o testo aggiuntivo.');
   // The token is used only server-side with the official Telegram API.
   let res;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(),20000);
   try {res = await send('https://api.telegram.org/bot'+token+'/'+method, {
     method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data),
-    signal:AbortSignal.timeout(10000), redirect:'error'
-  });} catch {throw new TelegramError('Connessione a Telegram non riuscita o scaduta. Riprova tra poco.');}
+    signal:controller.signal, redirect:'error'
+  });} catch (error) {
+    let detail = 'NETWORK: il Worker non riesce a raggiungere api.telegram.org.';
+    if (controller.signal.aborted || ['AbortError','TimeoutError'].includes(error?.name))
+      detail = 'TIMEOUT: Telegram non ha risposto entro 20 secondi.';
+    else if (/illegal invocation|receiver|this.*binding/i.test(String(error?.message)))
+      detail = 'RUNTIME_CALL: il runtime ha rifiutato la chiamata fetch.';
+    else if (/dns|resolve|hostname/i.test(String(error?.message)))
+      detail = 'DNS: il runtime non risolve il dominio api.telegram.org.';
+    else if (/tls|certificate|ssl/i.test(String(error?.message)))
+      detail = 'TLS: connessione HTTPS a Telegram non riuscita.';
+    else if (error?.name === 'TypeError')
+      detail = 'FETCH_TYPE: il runtime ha rifiutato la richiesta prima della risposta di Telegram.';
+    throw new TelegramError('Connessione a Telegram non riuscita. '+detail);
+  } finally {clearTimeout(timeout);} 
   let result;
   try {result = await res.json();} catch {throw new TelegramError('Telegram ha restituito una risposta non valida. Riprova tra poco.');}
   if (!res.ok || result.ok !== true) {
@@ -182,14 +198,18 @@ export function matchingPrivateChat(updates, command, now = Date.now()) {
   return ids.size === 1 ? [...ids][0] : null;
 }
 async function setupTelegram(request, env) {
-  if (request.method === 'GET' && new URL(request.url).pathname === '/telegram') return setupPage();
-  if (request.method !== 'POST') return setupPage('Metodo non consentito.',405);
-  if (request.headers.get('Origin') !== new URL(request.url).origin) return setupPage('Origine non consentita.',403);
-  if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return setupPage('Formato non valido.',415);
-  let data; try {data = await readBody(request,true);} catch {return setupPage('Richiesta non valida.',400);}
+  const cookie = request.headers.get('Cookie') || '';
+  const prior = cookie.match(/(?:^|;\s*)edofa_pair=([0-9a-f-]{36})(?:;|$)/i)?.[1];
+  const pairingId = prior && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(prior) ? prior : crypto.randomUUID();
+  const page = (message='', status=200) => setupPage(message,status,pairingId);
+  if (request.method === 'GET' && new URL(request.url).pathname === '/telegram') return page();
+  if (request.method !== 'POST') return page('Metodo non consentito.',405);
+  if (request.headers.get('Origin') !== new URL(request.url).origin) return page('Origine non consentita.',403);
+  if (!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded')) return page('Formato non valido.',415);
+  let data; try {data = await readBody(request,true);} catch {return page('Richiesta non valida.',400);}
   const auth = await authorizeTelegramSetup(data,env);
-  if (!auth.ok) return setupPage(auth.message,403);
-  if (!env.DB) return setupPage('Collega prima il database D1 con nome DB.',503);
+  if (!auth.ok) return page(auth.message,403);
+  if (!env.DB) return page('Collega prima il database D1 con nome DB.',503);
   let stage = 'database D1';
   try {
     await env.DB.batch(SCHEMA.map(sql => env.DB.prepare(sql)));
@@ -198,38 +218,38 @@ async function setupTelegram(request, env) {
       stage = 'verifica Telegram';
       const me = await telegramCall(env.TELEGRAM_BOT_TOKEN,'getMe',{});
       const webhook = await telegramCall(env.TELEGRAM_BOT_TOKEN,'getWebhookInfo',{});
-      return setupPage('Database D1: OK. Token: OK. Bot: @'+me.username+'. '+
+      return page('Database D1: OK. Token: OK. Bot: @'+me.username+'. '+
         (webhook.url ? 'ATTENZIONE: webhook attivo. Il bot e gia usato da un altro servizio.' : 'Webhook: assente, OK. ')+
         (chat ? 'Una chat e gia collegata: puoi inviare una prova.' : 'Invia il nuovo comando qui sotto a QUESTO bot e collega la chat.'));
     }
     stage = 'comunicazione Telegram';
     if (new URL(request.url).pathname === '/telegram/test') {
-      if (!chat) return setupPage('Prima devi collegare la chat.',409);
+      if (!chat) return page('Prima devi collegare la chat.',409);
       await telegramCall(env.TELEGRAM_BOT_TOKEN,'sendMessage',{chat_id:chat,
         text:'E.Do.-Fa: messaggio di prova. Le notifiche Telegram funzionano.',protect_content:true});
-      return setupPage('Messaggio di prova inviato alla chat collegata.');
+      return page('Messaggio di prova inviato alla chat collegata.');
     }
-    if (chat) return setupPage('Una chat e gia collegata. Non e stata modificata. Puoi usare Invia prova su Telegram.');
+    if (chat) return page('Una chat e gia collegata. Non e stata modificata. Puoi usare Invia prova su Telegram.');
     const updates = await telegramCall(env.TELEGRAM_BOT_TOKEN,'getUpdates',{limit:100,timeout:0,allowed_updates:['message']});
     chat = matchingPrivateChat(updates, data.command);
-    if (!chat) return setupPage('Non trovo un messaggio valido nella tua chat privata. Copia il NUOVO codice qui sotto, invialo al bot e riprova entro 15 minuti.',400);
+    if (!chat) return page('Non trovo un messaggio valido nella tua chat privata. Invia il codice qui sotto al bot, poi riprova. Il codice resta stabile in questa sessione; il messaggio Telegram deve essere recente.',400);
     stage = 'salvataggio chat in D1';
     const saved = await env.DB.prepare('INSERT OR IGNORE INTO feedback_config(name,value) VALUES (?,?)')
       .bind('telegram_chat_id',chat).run();
-    if (saved.meta?.changes !== 1) return setupPage('Una chat e stata gia collegata. Nessuna modifica effettuata.',409);
+    if (saved.meta?.changes !== 1) return page('Una chat e stata gia collegata. Nessuna modifica effettuata.',409);
     try {
       await telegramCall(env.TELEGRAM_BOT_TOKEN,'sendMessage',{chat_id:chat,
         text:'E.Do.-Fa collegato! I nuovi feedback arriveranno in questa chat privata. Nessun PDF viene trasmesso.',protect_content:true});
-      return setupPage('Collegamento completato! Controlla la conferma su Telegram. Puoi chiudere questa pagina.');
-    } catch (error) {return setupPage('Chat collegata, ma la conferma non e arrivata. '+
+      return page('Collegamento completato! Controlla la conferma su Telegram. Puoi chiudere questa pagina.');
+    } catch (error) {return page('Chat collegata, ma la conferma non e arrivata. '+
       (error instanceof TelegramError ? error.message : 'Usa Invia prova su Telegram.'),502);}
   } catch (error) {
     // Never expose an exception that might contain a token or database details.
-    return setupPage(error instanceof TelegramError ? error.message :
+    return page(error instanceof TelegramError ? error.message :
       'Errore nella fase: '+stage+'. Verifica il binding DB e riprova. Nessun token viene mostrato in questa pagina.',503);
   }
 }
-export async function notifyTelegram(env, data, send = fetch) {
+export async function notifyTelegram(env, data, send = (...args) => fetch(...args)) {
   if (!env.TELEGRAM_BOT_TOKEN) return;
   const chat = await configuredChat(env);
   if (!chat) return;
@@ -246,10 +266,87 @@ export async function notifyTelegram(env, data, send = fetch) {
   } catch { /* The original feedback is already saved, even if Telegram fails. */ }
   await env.DB.prepare('UPDATE telegram_delivery SET state = ? WHERE feedback_id = ?').bind(state,data.id).run();
 }
+function adminResponse(content, status=200, cookie=null) {
+  const headers = {'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store',
+    'Referrer-Policy':'same-origin','X-Content-Type-Options':'nosniff',
+    'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"};
+  if (cookie) headers['Set-Cookie']=cookie;
+  return new Response(`<!doctype html><html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>E.Do.-Fa | I tuoi feedback</title>
+  <style>body{font:19px/1.6 system-ui;background:#f4f7f2;color:#172b42;margin:0;padding:20px}main{max-width:850px;margin:auto}
+  h1{color:#116a54;line-height:1.2}article,.box{background:white;border:1px solid #d6e1d7;border-radius:16px;padding:24px;margin:20px 0}
+  input,button,.button{font:inherit;border-radius:8px;padding:12px;box-sizing:border-box;max-width:100%}input{display:block;width:100%;margin:12px 0;border:1px solid #9ab4a8}
+  button,.button{background:#116a54;color:white;border:0;cursor:pointer;text-decoration:none;display:inline-block;margin:6px 6px 6px 0}
+  nav{display:flex;flex-wrap:wrap;align-items:center;gap:10px}.message{white-space:pre-wrap;overflow-wrap:anywhere}h2{font-size:23px;overflow-wrap:anywhere}small{font-size:16px;color:#4d645c}
+  .notice{padding:15px;background:#fff1d5;border-radius:9px}a{color:#116a54}</style><main><h1>E.Do.-Fa · I tuoi feedback</h1>${content}</main></html>`,{status,headers});
+}
+function adminLogin(message='',status=200) {
+  return adminResponse(`${message?'<p class="notice" role="status">'+escapeHTML(message)+'</p>':''}
+    <section class="box"><h2>Accesso riservato a te</h2><p>Leggi i messaggi senza aprire Cloudflare. Non viene effettuata nessuna connessione a Telegram.</p>
+    <form action="/admin/login" method="post"><label for="key">Chiave di accesso</label><input id="key" name="key" type="password" required maxlength="4000" autocomplete="off">
+    <p><small>Usa il token di BotFather gia salvato nel tuo Worker. Qui serve soltanto come chiave riservata: resta su questo servizio Cloudflare, senza essere inviato a Telegram.</small></p>
+    <button>Apri i miei feedback</button></form></section><a href="https://gitmax76.github.io/EDo/">Apri l'editor PDF</a>`,status);
+}
+async function sessionSignature(value,token) {
+  const enc=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',enc.encode('edofa-private-inbox-v1|'+token),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const bytes=await crypto.subtle.sign('HMAC',key,enc.encode(value));
+  return [...new Uint8Array(bytes)].map(n=>n.toString(16).padStart(2,'0')).join('');
+}
+export async function makeAdminSession(token,now=Date.now()) {
+  const value=Math.floor(now/1000+3600)+'.'+crypto.randomUUID();
+  return value+'.'+await sessionSignature(value,token);
+}
+export async function validAdminSession(session,token,now=Date.now()) {
+  if (!token || typeof session!=='string') return false;
+  const match=session.match(/^(\d{10})\.([0-9a-f-]{36})\.([0-9a-f]{64})$/);
+  if (!match || Number(match[1])<=now/1000 || Number(match[1])>now/1000+3601) return false;
+  const expected=await sessionSignature(match[1]+'.'+match[2],token);
+  let diff=0;for(let i=0;i<expected.length;i++)diff|=expected.charCodeAt(i)^match[3].charCodeAt(i);
+  return diff===0;
+}
+export function inboxContent(rows,total,pageNumber) {
+  const cards=rows.map(row=>{
+    const date=new Date(row.created_at);
+    const when=Number.isNaN(date.getTime())?'Data non disponibile':date.toLocaleString('it-IT',{timeZone:'Europe/Rome'});
+    return `<article><small>${escapeHTML(when)} · ${escapeHTML(row.kind)}</small><h2>${escapeHTML(row.title)}</h2><div class="message">${escapeHTML(row.message)}</div></article>`;
+  }).join('');
+  return `<nav><a class="button" href="/admin">Aggiorna messaggi</a><form action="/admin/logout" method="post"><button>Esci</button></form></nav>
+    <p>${total} messaggi ricevuti · Prima i piu recenti</p>${cards||'<section class="box">Nessun feedback ricevuto per ora.</section>'}
+    <nav>${pageNumber>0?'<a class="button" href="/admin?page='+(pageNumber-1)+'">Precedenti</a>':''}
+    ${(pageNumber+1)*50<total?'<a class="button" href="/admin?page='+(pageNumber+1)+'">Successivi</a>':''}</nav>
+    <p><small>Accesso valido per un'ora. I messaggi restano privati e non vengono pubblicati su GitHub.</small></p>`;
+}
+async function adminInbox(request,env) {
+  const url=new URL(request.url),token=normalizeBotToken(env.TELEGRAM_BOT_TOKEN);
+  if (request.method==='POST') {
+    if(request.headers.get('Origin')!==url.origin)return adminLogin('Origine non consentita.',403);
+    if(url.pathname==='/admin/logout')return adminResponse('<p>Sei uscito.</p><a class="button" href="/admin">Accedi di nuovo</a>',200,'__Host-edofa_admin=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict');
+    if(url.pathname!=='/admin/login')return adminLogin('Metodo non consentito.',405);
+    if(!request.headers.get('Content-Type')?.startsWith('application/x-www-form-urlencoded'))return adminLogin('Formato non valido.',415);
+    let data;try{data=await readBody(request,true);}catch{return adminLogin('Richiesta non valida.',400);}
+    const auth=await authorizeTelegramSetup({...data,auth:'token'},env);
+    if(!auth.ok)return adminLogin(auth.message,403);
+    const session=await makeAdminSession(token);
+    return new Response(null,{status:303,headers:{Location:'/admin','Cache-Control':'no-store',
+      'Set-Cookie':'__Host-edofa_admin='+session+'; Path=/; Max-Age=3600; HttpOnly; Secure; SameSite=Strict'}});
+  }
+  if(request.method!=='GET'||url.pathname!=='/admin')return adminLogin('Metodo non consentito.',405);
+  const session=request.headers.get('Cookie')?.match(/(?:^|;\s*)__Host-edofa_admin=([^;]+)/)?.[1];
+  if(!await validAdminSession(session,token))return adminLogin();
+  if(!env.DB)return adminLogin('Database non collegato.',503);
+  try {
+    await env.DB.batch(SCHEMA.map(sql=>env.DB.prepare(sql)));
+    const pageNumber=Math.min(100000,Math.max(0,parseInt(url.searchParams.get('page')||'0',10)||0));
+    const total=await env.DB.prepare('SELECT COUNT(*) AS total FROM feedback').first();
+    const list=await env.DB.prepare('SELECT created_at,kind,title,message FROM feedback ORDER BY created_at DESC,id DESC LIMIT 50 OFFSET ?').bind(pageNumber*50).all();
+    return adminResponse(inboxContent(list.results||[],total?.total||0,pageNumber));
+  } catch {return adminResponse('<p class="notice">Lettura del database non riuscita. Riprova tra poco.</p><a class="button" href="/admin">Riprova</a>',503);}
+}
 export default {
   async fetch(request, env, ctx) {
     const path = new URL(request.url).pathname;
     const cors = request.headers.get('Origin') === ORIGIN;
+    if (['/admin','/admin/login','/admin/logout'].includes(path)) return adminInbox(request,env);
     if (['/telegram','/telegram/connect','/telegram/test','/telegram/check'].includes(path)) return setupTelegram(request,env);
     if (request.method === 'GET' && (path === '/' || path === '/health')) {
       try {
@@ -288,7 +385,7 @@ export default {
       const result = await env.DB.prepare(INSERT_FEEDBACK)
         .bind(data.id, now.toISOString(), month, key, data.kind, data.title, data.message).run();
       if (result.meta?.changes === 1) {
-        const delivery = notifyTelegram(env,data).catch(() => {});
+        const delivery = env.ENABLE_TELEGRAM === 'true' ? notifyTelegram(env,data).catch(() => {}) : Promise.resolve();
         if (ctx?.waitUntil) ctx.waitUntil(delivery); else await delivery;
         return reply({ok: true, message: 'Grazie! Feedback ricevuto.'}, 201, cors);
       }

@@ -51,3 +51,11 @@ Il collegamento richiede sia il token configurato sia il comando recente nella c
 Solo i feedback NUOVI vengono notificati. Titolo, descrizione e tipo passano anche da Telegram; IP e codice di rete non vengono inoltrati. Nessun recupero automatico dei messaggi storici.
 
 In caso di errore Telegram il feedback resta nel database. Lo stato degli invii e in `telegram_delivery` (`in_corso`, `inviato`, `errore`). Non e prevista ritrasmissione automatica: leggere eventuali messaggi mancanti in D1. **Invia prova su Telegram** non consuma la quota dei feedback.
+
+## Lettura rapida dal browser: pagina privata
+
+Aprire `https://edofa-feedback.massi-sabato.workers.dev/admin` e usare come chiave il token gia salvato in TELEGRAM_BOT_TOKEN. La chiave viene confrontata esclusivamente nel Worker: nessuna chiamata a Telegram, nessun token in URL, nessuna nuova password.
+
+Il login crea una sessione firmata HMAC con scadenza di un'ora, in cookie Secure, HttpOnly, SameSite=Strict. Le risposte non vengono memorizzate in cache. La pagina mostra 50 feedback per pagina, dal piu recente, con aggiornamento manuale e uscita. Nessun dato e leggibile senza sessione valida. I contenuti dei feedback vengono trattati come testo, mai come HTML.
+
+Questa pagina sostituisce i tentativi di notifiche Telegram: gli invii automatici sono ora disattivati per impostazione predefinita. L'eventuale riattivazione richiede la variabile ENABLE_TELEGRAM=true e una chat gia configurata. La raccolta dei feedback e la pagina privata non ne dipendono.
