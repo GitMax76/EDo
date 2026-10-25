@@ -37,6 +37,8 @@ async function check(engine,mobile=false){
     assert.equal(await page.locator('dialog[open]').count(),0,'tour has no modal backdrop');
     assert.equal(await page.locator('#open').isEnabled(),true,'actual app button is usable');
     await noOverlap();
+    assert.equal(await page.locator('#guide-connector').isVisible(),true,'visual link points from coach to real control');
+    const intro=await page.locator('#guide-panel').boundingBox();assert.ok(Math.abs(intro.x+intro.width/2-page.viewportSize().width/2)<3,'intro is horizontally central');
     const cancelled=page.waitForEvent('filechooser');await tap('#open');await (await cancelled).setFiles([]);assert.equal(await step(),'open','cancelled file picker does not advance');
     const invalid=page.waitForEvent('filechooser');await tap('#open');await (await invalid).setFiles({name:'rotto.pdf',mimeType:'application/pdf',buffer:Buffer.from('not a PDF')});
     await page.waitForFunction(()=>document.getElementById('busy').hidden);assert.equal(await step(),'open','failed PDF does not advance');
@@ -95,6 +97,7 @@ async function check(engine,mobile=false){
     await tap('#help');await page.selectOption('#guide-route','basics');await wait('textTool');await tap('[data-tool="text"]');await wait('textDraw');await draw();await wait('textWrite');
     await tap('#inline-cancel');await wait('textTool');await tap('[data-tool="text"]');await wait('textDraw');await draw();await wait('textWrite');
     await page.locator('#inline-text').fill('Bozza da conservare');await settle();assert.equal(await page.locator('#inline-editor').isVisible(),true,'draft remains open before leaving the guide');await tap('#guide-skip');
+    assert.equal(await page.locator('#guide-connector').isVisible(),false,'visual link is removed on exit');
     assert.equal(await page.locator('#inline-text').inputValue(),'Bozza da conservare');assert.equal(await page.locator('#inline-editor').isVisible(),true,'leaving the guide does not commit or discard a draft');
     await tap('#inline-cancel');
     const manifest=await (await page.request.get(url+'manifest.webmanifest')).json();assert.equal(manifest.display,'standalone');

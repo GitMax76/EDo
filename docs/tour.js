@@ -8,7 +8,7 @@
     pages: {label: 'Ruotare una pagina', steps: ['open','rotate','undo','download','finish']}
   };
   const definitions = {
-    open: {group:'open', title:'Apri il tuo PDF', text:'Tocca il pulsante evidenziato e scegli un PDF. Ti accompagno appena il documento è aperto.', selector:'#open'},
+    open: {group:'open', title:'Apri il tuo PDF', text:'Segui la freccia verso “Apri PDF”, in alto. Tocca il pulsante evidenziato e scegli il documento: poi continuiamo insieme.', selector:'#open'},
     textTool: {group:'text', title:'Scegli “Scrivi testo”', text:'Tocca il pulsante evidenziato tra gli strumenti dell’app.', selector:'[data-tool="text"]'},
     textDraw: {group:'text', title:'Disegna il riquadro', text:'Sulla pagina, tieni premuto e trascina come nell’animazione. Puoi scegliere tu il punto in cui scrivere.', selector:'#paper', gesture:'draw'},
     textWrite: {group:'text', title:'Scrivi nel riquadro', text:'Scrivi una breve nota nel riquadro che hai appena creato. Poi premi “Fatto”.', selector:'#inline-text'},
@@ -33,7 +33,9 @@
   const ring = document.createElement('div'); ring.id = 'guide-spotlight'; ring.hidden = true; ring.setAttribute('aria-hidden','true');
   const gesture = document.createElement('div'); gesture.id = 'guide-gesture'; gesture.hidden = true; gesture.setAttribute('aria-hidden','true');
   gesture.innerHTML = '<div class="tour-drag-area"></div><svg class="tour-finger" viewBox="0 0 40 48"><path d="M12 26V8a4 4 0 0 1 8 0v13l3-1 4 2 4 1 3 5-2 14H15L6 31q-2-5 3-5l3 3" fill="#fff" stroke="#116a54" stroke-width="3" stroke-linejoin="round"/></svg>';
-  document.body.append(panel,ring,gesture);
+  const connector=document.createElement('div');connector.id='guide-connector';connector.hidden=true;connector.setAttribute('aria-hidden','true');
+  connector.innerHTML='<svg xmlns="http://www.w3.org/2000/svg"><defs><marker id="tour-arrowhead" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M2 2L10 6L2 10" fill="none" stroke="#16785f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs><path class="tour-link-outline"/><path class="tour-link" marker-end="url(#tour-arrowhead)"/></svg>';
+  document.body.append(panel,ring,gesture,connector);
   const loaded = () => Boolean(window.pdfEditor?.state.pages.length);
   const current = () => routes[route].steps[index];
   const remember = () => {try {localStorage.setItem(seenKey,'true');} catch {}};
@@ -41,12 +43,12 @@
     if(previousTarget) {if(previousDescription===null) previousTarget.removeAttribute('aria-describedby'); else previousTarget.setAttribute('aria-describedby',previousDescription);}
     previousTarget = null; previousDescription = null;
   }
-  function portal(host = document.body) {for(const node of [panel,ring,gesture]) if(node.parentElement !== host) host.append(node);}
+  function portal(host = document.body) {for(const node of [panel,ring,gesture,connector]) if(node.parentElement !== host) host.append(node);}
   function stop() {
-    running=false;paused=false;afterSignature=null;remember();clearDescription();panel.hidden=ring.hidden=gesture.hidden=true;
+    running=false;paused=false;afterSignature=null;remember();clearDescription();panel.hidden=ring.hidden=gesture.hidden=connector.hidden=true;
     document.body.classList.remove('edo-tour-running');document.body.style.removeProperty('--tour-space');portal();
   }
-  function pause() {if(!running)return;paused=true;panel.hidden=ring.hidden=gesture.hidden=true;document.body.classList.remove('edo-tour-running');}
+  function pause() {if(!running)return;paused=true;panel.hidden=ring.hidden=gesture.hidden=connector.hidden=true;document.body.classList.remove('edo-tour-running');}
   function resume() {if(!running)return;paused=false;document.body.classList.add('edo-tour-running');render(true);}
   function start() {
     if(document.querySelector('dialog[open]')) return;
@@ -102,15 +104,28 @@
     let left=vx+vw-panelWidth-8;
     if(vw>760&&r&&r.right>left&&r.bottom>vy+vh-height-18) left=vx+8;
     panel.style.left=`${left}px`;
+    if(current()==='open'&&r){
+      panel.style.left=`${vx+(vw-panelWidth)/2}px`;
+      panel.style.top=`${Math.min(vy+vh-height-8,Math.max(vy+(vh-height)/2,r.bottom+38))}px`;
+    }
     if(node!==previousTarget) {clearDescription();if(node){previousTarget=node;previousDescription=node.getAttribute('aria-describedby');node.setAttribute('aria-describedby',[previousDescription,'guide-body'].filter(Boolean).join(' '));}}
     const id=current();
-    if(!r || id==='finish' || r.bottom<vy || r.top>vy+vh || r.right<vx || r.left>vx+vw) {ring.hidden=gesture.hidden=true;return;}
+    if(!r || id==='finish' || r.bottom<vy || r.top>vy+vh || r.right<vx || r.left>vx+vw) {ring.hidden=gesture.hidden=connector.hidden=true;return;}
     const clip=node.closest('dialog[open]')?.getBoundingClientRect();
     const x=Math.max(vx+3,r.left-5), y=Math.max(vy+3,clip?clip.top+2:vy+3,r.top-5);
     const right=Math.min(vx+vw-3,r.right+5),bottom=Math.min(vy+vh-3,clip?clip.bottom-2:vy+vh-3,r.bottom+5);
-    if(right<=x||bottom<=y) {ring.hidden=gesture.hidden=true;return;}
+    if(right<=x||bottom<=y) {ring.hidden=gesture.hidden=connector.hidden=true;return;}
     ring.hidden=false;Object.assign(ring.style,{left:`${x}px`,top:`${y}px`,width:`${right-x}px`,height:`${bottom-y}px`});
     const mode=definitions[id].gesture;
+    ring.dataset.gesture=mode||'';ring.dataset.labelBelow=String(y<42);
+    connector.hidden=Boolean(mode);
+    if(!mode){
+      const c=panel.getBoundingClientRect(),tx=(x+right)/2,ty=(y+bottom)/2,cx=c.left+c.width/2,cy=c.top+c.height/2;
+      let sx=cx,sy=cy,ex=tx,ey=ty;
+      if(bottom<c.top){sy=c.top-3;ey=bottom+9;}else if(y>c.bottom){sy=c.bottom+3;ey=y-9;}else if(right<c.left){sx=c.left-3;ex=right+9;}else{sx=c.right+3;ex=x-9;}
+      const d=`M ${sx} ${sy} C ${sx} ${(sy+ey)/2}, ${ex} ${(sy+ey)/2}, ${ex} ${ey}`;
+      for(const path of connector.querySelectorAll('svg > path'))if(path.getAttribute('d')!==d)path.setAttribute('d',d);
+    }
     gesture.hidden=!mode;gesture.dataset.mode=mode||'';
     if(mode) Object.assign(gesture.style,{left:`${x+Math.max(0,(right-x-130)/2)}px`,top:`${y+Math.max(0,(bottom-y-65)/2)}px`,width:`${Math.min(150,right-x)}px`,height:`${Math.min(75,bottom-y)}px`});
   }

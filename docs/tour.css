@@ -21,3 +21,15 @@ body.edo-tour-running{padding-bottom:var(--tour-space,240px)}
 @keyframes tour-tap{0%,100%{transform:scale(1);opacity:.3}50%{transform:scale(.85);opacity:1}}
 @keyframes tour-resize{0%,20%{transform:translate(-10px,-10px);opacity:.3}70%,100%{transform:translate(20px,20px);opacity:1}}
 @media(prefers-reduced-motion:reduce){#guide-spotlight,.tour-finger,.tour-drag-area{animation:none}.tour-finger{transform:translate(45px,20px)}}
+/* A clear visual path from the explanation to the real control. */
+.tour-panel{border-width:2px;box-shadow:0 8px 32px #163a3438}
+.tour-panel[data-step=open]{border-top:5px solid #16785f}
+#guide-spotlight{border-width:4px;background:#16785f09;box-shadow:0 0 0 4px #fff,0 0 0 10px #16785f55}
+#guide-spotlight[data-gesture=""]::after{content:'Tocca qui';position:absolute;bottom:calc(100% + 11px);left:50%;transform:translateX(-50%);padding:5px 10px;white-space:nowrap;border-radius:20px;background:#116a54;color:white;font:700 13px 'Segoe UI',sans-serif;box-shadow:0 2px 8px #123c3326}
+#guide-spotlight[data-label-below=true]::after{bottom:auto;top:calc(100% + 11px)}
+#guide-connector{position:fixed;inset:0;width:100%;height:100%;z-index:153;pointer-events:none;overflow:visible}
+#guide-connector svg{display:block;width:100%;height:100%;overflow:visible}
+.tour-link-outline{fill:none;stroke:#fff;stroke-width:7;stroke-linecap:round;opacity:.9}
+.tour-link{fill:none;stroke:#16785f;stroke-width:3;stroke-dasharray:5 9;stroke-linecap:round;animation:tour-flow 2.4s linear infinite}
+@keyframes tour-flow{to{stroke-dashoffset:-56}}
+@media(prefers-reduced-motion:reduce){.tour-link{animation:none}}
