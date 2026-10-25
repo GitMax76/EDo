@@ -18,7 +18,7 @@
     correctWrite: {group:'correct', title:'Scrivi la correzione', text:'Scrivi la sostituzione e premi “Fatto”. Per lasciare soltanto la copertura puoi premere “Fatto” anche senza scrivere.', selector:'#inline-text'},
     imageTool: {group:'image', title:'Scegli “Immagine o firma”', text:'Tocca il pulsante evidenziato per preparare l’inserimento della firma.', selector:'[data-tool="image"]'},
     imagePlace: {group:'image', title:'Tocca il punto della pagina', text:'Tocca la pagina dove vuoi mettere la firma. Si aprirà la scelta della foto dal tuo dispositivo.', selector:'#paper', gesture:'tap'},
-    imageCrop: {group:'image', title:'Ritaglia la firma sulla foto', text:'Trascina intorno alla firma oppure regola i pallini verdi. Escludi tavolo, bordi del foglio e segni estranei.', selector:'.signature-crop-stage', gesture:'draw'},
+    imageCrop: {group:'image', title:'Ritaglia la firma sulla foto', text:'Trascina i pallini verdi per stringere il ritaglio intorno alla firma. Il pallino evidenziato mostra da dove iniziare: escludi foglio, tavolo e segni estranei.', selector:'.signature-crop-handle[data-handle=se]', gesture:'crop'},
     imageInsert: {group:'image', title:'Controlla e inserisci la firma', text:'Controlla lo sfondo trasparente. Usa la gomma o regola il nero se serve, poi premi “Inserisci firma pulita”.', selector:'.signature-dialog [data-action="insert"]'},
     imageResize: {group:'image', title:'Regola la grandezza della firma', text:'Trascina il piccolo angolo verde in basso a destra della firma. Puoi anche spostarla trascinandola al centro.', selector:()=>imageId ? `[data-id="${CSS.escape(imageId)}"] .handle` : '[data-tool="move"]', gesture:'resize'},
     rotate: {group:'pages', title:'Prova a ruotare la pagina', text:'Tocca “Ruota di 90°”. Nel prossimo passaggio ti mostro come annullare la prova.', selector:'#rotate'},
@@ -104,10 +104,11 @@
     let left=vx+vw-panelWidth-8;
     if(vw>760&&r&&r.right>left&&r.bottom>vy+vh-height-18) left=vx+8;
     panel.style.left=`${left}px`;
-    if(current()==='open'&&r){
+    if((current()==='open'||['textTool','correctTool','imageTool'].includes(current()))&&r){
       panel.style.left=`${vx+(vw-panelWidth)/2}px`;
       panel.style.top=`${Math.min(vy+vh-height-8,Math.max(vy+(vh-height)/2,r.bottom+38))}px`;
     }
+    if(inSignature) panel.style.left=`${vx+(vw-panelWidth)/2}px`;
     if(node!==previousTarget) {clearDescription();if(node){previousTarget=node;previousDescription=node.getAttribute('aria-describedby');node.setAttribute('aria-describedby',[previousDescription,'guide-body'].filter(Boolean).join(' '));}}
     const id=current();
     if(!r || id==='finish' || r.bottom<vy || r.top>vy+vh || r.right<vx || r.left>vx+vw) {ring.hidden=gesture.hidden=connector.hidden=true;return;}
@@ -127,7 +128,8 @@
       for(const path of connector.querySelectorAll('svg > path'))if(path.getAttribute('d')!==d)path.setAttribute('d',d);
     }
     gesture.hidden=!mode;gesture.dataset.mode=mode||'';
-    if(mode) Object.assign(gesture.style,{left:`${x+Math.max(0,(right-x-130)/2)}px`,top:`${y+Math.max(0,(bottom-y-65)/2)}px`,width:`${Math.min(150,right-x)}px`,height:`${Math.min(75,bottom-y)}px`});
+    if(mode==='crop') Object.assign(gesture.style,{left:`${r.left+r.width/2-15}px`,top:`${r.top+r.height/2-8}px`,width:'40px',height:'48px'});
+    else if(mode) Object.assign(gesture.style,{left:`${x+Math.max(0,(right-x-130)/2)}px`,top:`${y+Math.max(0,(bottom-y-65)/2)}px`,width:`${Math.min(150,right-x)}px`,height:`${Math.min(75,bottom-y)}px`});
   }
   function schedule() {if(running&&!paused&&!frame)frame=requestAnimationFrame(layout);}
   function showTarget() {
@@ -136,7 +138,8 @@
     const editing=document.activeElement===$('inline-text')&&['textWrite','correctWrite'].includes(current());
     if(!editing || node.id==='inline-done') {
       if(node.id==='paper') {$('viewer').scrollIntoView({block:'center',behavior:'instant'});}
-      else node.scrollIntoView({block:'center',behavior:'instant'});
+      else if(current()==='imageCrop') node.closest('.signature-crop-stage').scrollIntoView({block:'center',behavior:'instant'});
+      else if(current()!=='imageInsert') node.scrollIntoView({block:'center',behavior:'instant'});
       layout();
       if(!node.closest('dialog[open]')) {
         const r=rectOf(node), limit=parseFloat(panel.style.top)-14;

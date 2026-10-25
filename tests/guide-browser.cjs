@@ -47,6 +47,7 @@ async function check(engine,mobile=false){
     const picker=page.waitForEvent('filechooser');await tap('#open');await (await picker).setFiles({name:'prova.pdf',mimeType:'application/pdf',buffer:Buffer.from(await pdf.save())});
     await wait('textTool');assert.equal(await page.evaluate(()=>window.pdfEditor.state.pages.length),2);
     assert.equal(await step(),'textTool','opening a PDF does not pretend the tool was selected');
+    const toolCoach=await page.locator('#guide-panel').boundingBox();assert.ok(Math.abs(toolCoach.x+toolCoach.width/2-page.viewportSize().width/2)<3,'tool selection coach stays horizontally central');
     await tap('[data-tool="text"]');await wait('textDraw');assert.equal(await page.locator('#guide-gesture').isVisible(),true);
     await draw();await wait('textWrite');assert.equal(await page.locator('#inline-text').isVisible(),true);
     await page.locator('#inline-text').fill('Nota guidata');await settle();assert.equal(await step(),'textWrite','typing alone does not complete the step');
@@ -60,9 +61,17 @@ async function check(engine,mobile=false){
     await noOverlap();const photo=page.waitForEvent('filechooser');await tapPaper();
     await (await photo).setFiles({name:'firma.png',mimeType:'image/png',buffer:Buffer.from(image.split(',')[1],'base64')});
     await wait('imageCrop');assert.equal(await page.locator('.signature-dialog #guide-panel').count(),1,'coach remains interactive in signature dialog');
-    await noOverlap();const crop=await page.locator('.signature-source').boundingBox();
-    await drag(crop.x+crop.width*.25,crop.y+crop.height*.3,crop.width*.5,crop.height*.4);await wait('imageInsert');
+    await noOverlap();assert.equal(await page.locator('#guide-gesture').getAttribute('data-mode'),'crop','crop tutorial demonstrates an actual anchor');
+    const cropView=await page.locator('.signature-source').boundingBox(),insertView=await page.locator('.signature-dialog [data-action=insert]').boundingBox();
+    assert.ok(insertView.y>=0&&insertView.y+insertView.height<=page.viewportSize().height,'confirmation is visible while cropping');
+    const cropViewport=await page.locator('.signature-content').boundingBox();assert.ok(cropView.y>=cropViewport.y&&cropView.y+cropView.height<=cropViewport.y+cropViewport.height,'whole crop remains visible above fixed confirmation');
+    const crop=await page.locator('.signature-source').boundingBox();
+    const anchor=await page.locator('.signature-crop-handle[data-handle=se]').boundingBox();
+    await drag(anchor.x+anchor.width/2,anchor.y+anchor.height/2,-crop.width*.12,-crop.height*.12);await wait('imageInsert');
+    await drag(crop.x+crop.width*.25,crop.y+crop.height*.3,crop.width*.5,crop.height*.4);
     assert.equal(await page.locator('#guide-next').isEnabled(),true);await noOverlap();
+    await page.locator('.signature-content').evaluate(e=>{e.scrollTop=e.scrollHeight;});await settle();
+    await noOverlap();
     await tap('.signature-dialog [data-action="insert"]');await wait('imageResize');
     assert.equal(await page.locator('body > #guide-panel').count(),1,'coach returns to app when signature dialog closes');
     const imageElement=await page.evaluate(()=>window.pdfEditor.state.pages[0].elements.find(e=>e.type==='image'));

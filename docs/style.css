@@ -36,3 +36,10 @@
 .inline-actions{position:absolute;left:0;top:100%;display:flex;gap:5px;padding-top:7px;white-space:nowrap;cursor:default}
 .inline-actions button{padding:7px 11px;border-color:#b5d6c5;font-size:12px;box-shadow:0 2px 8px #0001}
 #inline-done{background:#16785f;color:white}
+
+/* Keep the confirmation reachable while the photo and settings scroll. */
+.signature-dialog[open]{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.signature-content{min-height:0;overflow:auto;overscroll-behavior:contain;padding:20px 24px;scroll-padding:14px}
+.signature-dialog>.dialog-actions{flex-shrink:0;margin:0;padding:12px 20px;border-top:1px solid #d8e5df;background:#fff;box-shadow:0 -4px 14px #163a340c;gap:8px}
+@media(min-width:761px){.signature-grid>section:first-child{position:sticky;top:0;align-self:start;background:#fff}}
+@media(max-width:760px){.signature-content{padding:12px 18px}.signature-dialog>.dialog-actions{padding:8px 12px;gap:6px}.signature-dialog>.dialog-actions button{font-size:14px;min-height:40px;padding:8px;flex:1 1 40%}.signature-dialog>.dialog-actions [data-action=insert]{order:-2}.signature-dialog>.dialog-actions [data-action=cancel]{order:-1;flex:0 0 auto}}

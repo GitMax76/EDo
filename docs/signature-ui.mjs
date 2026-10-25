@@ -6,7 +6,7 @@ export async function prepareSignature(data) {
   return new Promise((resolve, reject) => {
     const dialog = document.createElement('dialog'); dialog.className = 'signature-dialog';
     dialog.setAttribute('aria-labelledby', 'signature-heading');
-    dialog.innerHTML = `<h2 id="signature-heading">Immagine o firma</h2>
+    dialog.innerHTML = `<div class="signature-content"><h2 id="signature-heading">Immagine o firma</h2>
       <p>Per una foto normale scegli <b>Usa immagine originale</b>. Per una firma, ritaglia l’area sul foglio ed elimina lo sfondo.</p>
       <div class="signature-grid"><section><h3>1. Ritaglia intorno alla firma</h3>
       <p>Disegna un riquadro intorno alla firma. Poi trascina i pallini per regolare i bordi, oppure l’interno per spostarlo.</p>
@@ -29,7 +29,7 @@ export async function prepareSignature(data) {
       <label class="signature-slider">Rimuovi sfondo <input data-setting="threshold" type="range" min="4" max="100" value="22"><small>Verso destra elimina più ombre; verso sinistra recupera i tratti leggeri.</small></label>
       <label class="signature-slider">Intensità del nero <input data-setting="strength" type="range" min="0.6" max="3" step="0.1" value="1.8"></label>
       <p class="signature-message" role="status" aria-live="polite"></p></section></div>
-      <div class="dialog-actions"><button type="button" data-action="cancel">Annulla</button><button type="button" data-action="original">Usa immagine originale</button><button type="button" data-action="download">Scarica PNG</button><button type="button" class="primary" data-action="insert">Inserisci firma pulita</button></div>`;
+      </div><div class="dialog-actions"><button type="button" data-action="cancel">Annulla</button><button type="button" data-action="original">Usa immagine originale</button><button type="button" data-action="download">Scarica PNG</button><button type="button" class="primary" data-action="insert">Inserisci firma pulita</button></div>`;
     document.body.append(dialog);
     const find = s => dialog.querySelector(s), source = find('.signature-source'), preview = find('.signature-preview'), cropFrame = find('.signature-crop-frame');
     let crop, drag, frame, bounds, erasing = false, stroke, drawing = true;

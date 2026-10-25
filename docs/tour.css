@@ -33,3 +33,12 @@ body.edo-tour-running{padding-bottom:var(--tour-space,240px)}
 .tour-link{fill:none;stroke:#16785f;stroke-width:3;stroke-dasharray:5 9;stroke-linecap:round;animation:tour-flow 2.4s linear infinite}
 @keyframes tour-flow{to{stroke-dashoffset:-56}}
 @media(prefers-reduced-motion:reduce){.tour-link{animation:none}}
+
+/* Signature guidance stays below the dialog; the real anchor is the target. */
+.tour-panel[data-step=imageCrop] .tour-route,.tour-panel[data-step=imageInsert] .tour-route{display:none}
+#guide-gesture[data-mode=crop] .tour-drag-area{display:none}
+#guide-gesture[data-mode=crop] .tour-finger{animation:tour-crop-anchor 2.4s ease-in-out infinite}
+@keyframes tour-crop-anchor{0%,15%{transform:translate(0,0);opacity:.4}30%{transform:translate(0,0);opacity:1}75%,90%{transform:translate(-18px,-14px);opacity:1}100%{transform:translate(-18px,-14px);opacity:0}}
+@media(prefers-reduced-motion:reduce){#guide-gesture[data-mode=crop] .tour-finger{animation:none;transform:none}}
+
+.edo-tour-running .signature-crop-frame{width:min(100%,calc(max(80px, var(--tour-view-height,100dvh) - var(--tour-space,240px) - 230px) * var(--signature-aspect,1)))}
