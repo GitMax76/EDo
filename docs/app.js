@@ -1,5 +1,6 @@
 import { dominantColor } from './background.mjs';
 import { prepareSignature } from './signature-ui.mjs';
+import { parsePageSelection, duplicateForPage } from './pages.mjs';
 import * as pdfjs from './vendor/pdf.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc = new URL('./vendor/pdf.worker.mjs', import.meta.url).href;
 const $ = id => document.getElementById(id);
@@ -28,7 +29,7 @@ function checkpoint() {
 function updateUI() {
   const loaded = S.pages.length > 0;
   document.body.classList.toggle('has-document',loaded);
-  for (const id of ['export', 'save-project', 'rotate', 'blank', 'merge']) $(id).disabled = !loaded;
+  for (const id of ['export', 'save-project', 'rotate', 'blank', 'merge', 'extract-pages']) $(id).disabled = !loaded;
   $('delete-page').disabled = S.pages.length < 2;
   $('pagebefore').disabled = !loaded || S.index === 0;
   $('pageafter').disabled = !loaded || S.index === S.pages.length-1;
@@ -53,6 +54,8 @@ function tool(name) {
 function inspector() {
   const e = element();
   $('element-controls').hidden = !e;
+  $('quick-duplicate').hidden = !e;
+  $('copy-pages').disabled = S.pages.length < 2;
   $('element-title').textContent = e ? ({text: 'Il tuo testo', image: 'La tua immagine', highlight: 'La tua evidenziazione', redact: 'La tua area oscurata', correct: 'Il tuo bianchetto'}[e.type]) : 'Un clic, poi sposta.';
   $('element-help').textContent = e ? 'Trascina per spostare. Usa questi comandi per rifinire.' : 'Seleziona una tua aggiunta sulla pagina per modificarla.';
   if (!e) return;
@@ -136,6 +139,14 @@ async function navigate(index) { commitInline(); S.index=clamp(index,0,S.pages.l
 async function sourceFrom(bytes, name) {
   const bytesCopy = new Uint8Array(bytes);
   const pdf = await pdfjs.getDocument({data:bytesCopy.slice(),isEvalSupported:false,enableXfa:false,useSystemFonts:true}).promise;
+  // This vendored PDF.js shares a page-count mapper across documents. E.Do.
+  // keeps page ordering itself; restore the source count for each page request
+  // so loading a shorter PDF never makes another source's later pages invalid.
+  const getPage = pdf.getPage.bind(pdf);
+  pdf.getPage = number => {
+    pdfjs.PagesMapper.instance.pagesNumber = pdf.numPages;
+    return getPage(number);
+  };
   return {bytes:bytesCopy,name,pdf};
 }
 async function openPDF(file, append=false) {
@@ -151,6 +162,95 @@ async function openPDF(file, append=false) {
     await render(); tool('move'); status(append?'PDF aggiunto in fondo al documento.':'PDF aperto. Scegli uno strumento a sinistra.');
     editorAction('document-opened');
     return true;
+  });
+}
+async function appendPDFs(files) {
+  const list = Array.from(files); if (!list.length || !page()) return;
+  commitInline();
+  await busy('Aggiungo i PDF…', async()=>{
+    const sources = [];
+    try {
+      for (const file of list) {
+        $('busytext').textContent = `Apro il PDF ${sources.length + 1} di ${list.length}…`;
+        sources.push(await sourceFrom(await file.arrayBuffer(), file.name));
+      }
+    } catch (error) {
+      for (const source of sources) await source.pdf.destroy();
+      throw Error('Non ho aggiunto i file: uno dei PDF non si apre. Il documento attuale è completo. ' + error.message);
+    }
+    const first = S.pages.length, sourceOffset = S.sources.length;
+    const added = sources.flatMap((source, i)=>Array.from({length:source.pdf.numPages},(_,j)=>({source:sourceOffset+i,number:j+1,rotation:0,elements:[]})));
+    checkpoint(); S.sources.push(...sources); S.pages.push(...added); S.selected=null; S.index=first;
+    await render(); tool('move');
+    status(`Aggiunti ${list.length} PDF in fondo: ${added.length} nuove pagine. Puoi riordinarle con Prima e Dopo, oppure annullare.`);
+    toast(`PDF uniti: il documento ora contiene ${S.pages.length} pagine.`);
+    editorAction('document-appended');
+  });
+}
+function duplicateSelected() {
+  commitInline(); const original = element(); if (!original) return;
+  const copy = duplicateForPage(original, S.width, S.height, {id:uid(), offset:18});
+  checkpoint(); page().elements.push(copy); S.selected=copy.id;
+  tool('move'); drawElements(); listPages();
+  status('Copia creata e selezionata. Trascinala nel punto che preferisci.');
+}
+let pageOperation = null, resumePageTour = false;
+function openPageDialog(mode) {
+  commitInline(); if (!page() || (mode==='copy' && !element())) return;
+  pageOperation = {mode, original:mode==='copy'?clone(element()):null, from:S.index};
+  $('pages-heading').textContent = mode==='copy'?'Copia su altre pagine':'Estrai pagine';
+  $('pages-description').textContent = mode==='copy'
+    ? 'Scegli le pagine su cui ripetere l’elemento. La copia mantiene posizione e dimensioni; su pagine più piccole viene adattata per rientrare nei bordi.'
+    : 'Scarica le pagine scelte in un nuovo PDF, con tutte le aggiunte. Il documento aperto rimane completo.';
+  $('pages-submit').textContent = mode==='copy'?'Copia sulle pagine':'Scarica le pagine';
+  $('pages-all').textContent = mode==='copy'?'Tutte le altre pagine':'Tutte le pagine';
+  $('pages-range').value = mode==='copy'?'':String(S.index+1);
+  $('pages-error').textContent=''; $('pages-range').removeAttribute('aria-invalid'); updatePageSummary();
+  resumePageTour=Boolean(window.edoTour?.active()); if(resumePageTour) window.edoTour.pause();
+  $('pages-dialog').showModal(); $('pages-range').focus();
+}
+function pageSelection() {
+  const indices = parsePageSelection($('pages-range').value,S.pages.length);
+  if(pageOperation?.mode==='copy' && indices.includes(pageOperation.from)) throw Error('Per una copia sulla pagina attuale usa Duplica. Qui scegli le altre pagine.');
+  return indices;
+}
+function updatePageSummary() {
+  try {
+    const indices=pageSelection();
+    $('pages-summary').textContent=`${indices.length} ${indices.length===1?'pagina selezionata':'pagine selezionate'} su ${S.pages.length}.`;
+  } catch { $('pages-summary').textContent=`Il documento contiene ${S.pages.length} pagine.`; }
+}
+function closePageDialog() {
+  $('pages-dialog').close(); pageOperation=null;
+  if(resumePageTour) window.edoTour?.resume(); resumePageTour=false;
+}
+async function applyPageOperation(event) {
+  event.preventDefault(); if(!pageOperation) return;
+  let indices;
+  try { indices=pageSelection(); }
+  catch(error) { $('pages-error').textContent=error.message; $('pages-range').setAttribute('aria-invalid','true'); $('pages-range').focus(); return; }
+  const operation=pageOperation;
+  if(operation.mode==='extract' && !confirmPDFDownload(indices.map(i=>S.pages[i]))) return;
+  // Close before work so the progress overlay remains visible above the document.
+  closePageDialog();
+  await busy(operation.mode==='copy'?'Copio gli elementi…':'Preparo le pagine…',async()=>{
+    if(operation.mode==='copy') {
+      const copies=[];
+      for(const index of indices) {
+        const target=S.pages[index];
+        const size=target.blank?{width:target.width||595,height:target.height||842}:(await S.sources[target.source].pdf.getPage(target.number)).getViewport({scale:1});
+        copies.push({target,element:duplicateForPage(operation.original,size.width,size.height,{id:uid()})});
+      }
+      checkpoint(); for(const item of copies) item.target.elements.push(item.element);
+      drawElements(); listPages(); updateUI();
+      status(`Elemento copiato su ${copies.length} ${copies.length===1?'pagina':'pagine'}. Puoi annullare l’intera operazione.`);
+      toast(`Copiato su ${copies.length} ${copies.length===1?'pagina':'pagine'}.`);
+    } else {
+      const bytes=await buildPDF(indices.map(i=>S.pages[i]));
+      download(bytes,'application/pdf',S.name.replace(/\.pdf$/i,'')+'_pagine_estratte.pdf');
+      status(`Scaricate ${indices.length} pagine. Il documento aperto è completo.`);
+      toast('Pagine estratte in un nuovo PDF.');
+    }
   });
 }
 function coordinates(event) {
@@ -303,15 +403,14 @@ async function rasterize(p){
   }
   return {bytes:await new Promise(resolve=>canvas.toBlob(async b=>resolve(new Uint8Array(await b.arrayBuffer())),'image/png')),width,height};
 }
-async function exportPDF(){
-  commitInline();
-  if(!page())return;
-  const altered=S.pages.filter(p=>p.elements.length).length;
-  if(altered&&!confirm(`Scaricare il PDF?\n\nLe ${altered} pagine con aggiunte o correzioni diventeranno immagini: il testo non sarà più selezionabile. Le bande nere rimuovono così il contenuto sottostante.\n\nPer continuare a spostare le aggiunte in futuro salva anche il progetto modificabile.`))return;
-  await busy('Preparo il tuo PDF…',async()=>{
+function confirmPDFDownload(pages) {
+  const altered=pages.filter(p=>p.elements.length).length;
+  return !altered || confirm(`Scaricare il PDF?\n\nLe ${altered} pagine con aggiunte o correzioni diventeranno immagini: il testo non sarà più selezionabile. Le bande nere rimuovono così il contenuto sottostante.\n\nPer continuare a spostare le aggiunte in futuro salva anche il progetto modificabile.`);
+}
+async function buildPDF(pages) {
     const out=await PDFDocument.create();const loaded=new Map();
-    for(let index=0;index<S.pages.length;index++){
-      const p=S.pages[index];$('busytext').textContent=`Preparo la pagina ${index+1} di ${S.pages.length}…`;
+    for(let index=0;index<pages.length;index++){
+      const p=pages[index];$('busytext').textContent=`Preparo la pagina ${index+1} di ${pages.length}…`;
       let target;
       if(p.elements.length){const raster=await rasterize(p);const image=await out.embedPng(raster.bytes);target=out.addPage([raster.width,raster.height]);target.drawImage(image,{x:0,y:0,width:raster.width,height:raster.height});target.setRotation(degrees(p.rotation));}
       else if(p.blank){target=out.addPage([p.width||595,p.height||842]);target.setRotation(degrees(p.rotation));}
@@ -321,7 +420,13 @@ async function exportPDF(){
       }
     }
     out.setTitle('Documento modificato');out.setProducer('E.Do. — Editor Documenti');
-    download(await out.save(),'application/pdf',S.name.replace(/\.pdf$/i,'')+'_modificato.pdf');status('PDF scaricato. Salva anche il progetto se vuoi riprendere le aggiunte.');editorAction('pdf-exported');
+    return await out.save();
+}
+async function exportPDF(){
+  commitInline(); if(!page() || !confirmPDFDownload(S.pages))return;
+  await busy('Preparo il tuo PDF…',async()=>{
+    download(await buildPDF(S.pages),'application/pdf',S.name.replace(/\.pdf$/i,'')+'_modificato.pdf');
+    status('PDF scaricato. Salva anche il progetto se vuoi riprendere le aggiunte.');editorAction('pdf-exported');
   });
 }
 function toBase64(bytes){let result='';for(let i=0;i<bytes.length;i+=32768)result+=String.fromCharCode(...bytes.subarray(i,i+32768));return btoa(result);}
@@ -378,7 +483,15 @@ async function demo(){
 for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>tool(b.dataset.tool);
 for(const id of ['open','welcome-open'])$(id).onclick=()=>$('pdf-input').click();
 $('pdf-input').onchange=e=>{openPDF(e.target.files[0]);e.target.value='';};
-$('merge').onclick=()=>$('merge-input').click();$('merge-input').onchange=e=>{openPDF(e.target.files[0],true);e.target.value='';};
+$('merge').onclick=()=>$('merge-input').click();$('merge-input').onchange=e=>{const files=Array.from(e.target.files);e.target.value='';appendPDFs(files);};
+$('duplicate-element').onclick=$('quick-duplicate').onclick=duplicateSelected;
+$('copy-pages').onclick=()=>openPageDialog('copy');
+$('extract-pages').onclick=()=>openPageDialog('extract');
+$('pages-cancel').onclick=closePageDialog;
+$('pages-dialog').oncancel=e=>{e.preventDefault();closePageDialog();};
+$('pages-form').onsubmit=applyPageOperation;
+$('pages-range').oninput=()=>{$('pages-error').textContent='';$('pages-range').removeAttribute('aria-invalid');updatePageSummary();};
+$('pages-all').onclick=()=>{$('pages-range').value=pageOperation.mode==='copy'?S.pages.map((_,i)=>i).filter(i=>i!==pageOperation.from).map(i=>i+1).join(', '):`1-${S.pages.length}`;$('pages-range').dispatchEvent(new Event('input'));};
 $('image-input').onchange=async event=>{
   const file=event.target.files[0];event.target.value='';if(!file||!page())return;
   const targetPage=page(), point={...(imagePoint||{x:30,y:30})};
@@ -433,7 +546,7 @@ $('export').onclick=exportPDF;$('save-project').onclick=saveProject;$('load-proj
 $('demo').onclick=demo;$('close-info').onclick=()=>$('info-dialog').close();
 document.addEventListener('dragover',e=>{e.preventDefault();});document.addEventListener('drop',e=>{e.preventDefault();const file=e.dataTransfer.files[0];if(file?.name.toLowerCase().endsWith('.pdf'))openPDF(file);});
 window.addEventListener('beforeunload',e=>{if(S.dirty){e.preventDefault();e.returnValue='';}});
-document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea')||document.querySelector('dialog[open]'))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();$('undo').click();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(page())saveProject();}if(e.key==='Delete'&&element())$('delete-element').click();});
+document.addEventListener('keydown',e=>{if(e.target.matches('input,textarea,select')||e.target.isContentEditable||document.querySelector('dialog[open]'))return;if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();$('undo').click();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();if(page())saveProject();}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='d'&&element()){e.preventDefault();duplicateSelected();}if(e.key==='Delete'&&element())$('delete-element').click();});
 // A phone keyboard changes viewport height, not PDF scale. Re-rendering on
 // that height change would commit the text being typed before the user is done.
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);if(!page()||$('viewer').clientWidth===renderedViewerWidth)return;resizeTimer=setTimeout(()=>{if(page())render();},250);});

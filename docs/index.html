@@ -56,7 +56,7 @@
     <div class="local-note"><span>✓</span><div>Nessun account necessario.<br>Nessun documento caricato online.</div></div>
   </aside>
   <section class="workspace" aria-label="Anteprima del documento">
-    <div id="hint" class="hint"><span class="hint-dot"></span><span id="hinttext">Apri un PDF oppure prova il documento di esempio.</span></div>
+    <div id="hint" class="hint"><span class="hint-dot"></span><span id="hinttext">Apri un PDF oppure prova il documento di esempio.</span><button id="quick-duplicate" type="button" hidden title="Crea una copia dell’elemento selezionato (Ctrl+D)">Duplica</button></div>
     <div id="viewer" class="viewer">
       <div id="welcome" class="welcome">
         <img class="welcome-brand" src="./logo.svg" alt="Il documento sorridente di E.Do."><span class="eyebrow">I PDF, FINALMENTE SEMPLICI</span>
@@ -80,18 +80,27 @@
         <button id="apply" class="full">Applica modifiche</button>
       <button id="clean-signature" class="full" hidden>Pulisci firma / togli sfondo</button>
       <div class="button-row"><button id="smaller">− Piccolo</button><button id="bigger">+ Grande</button></div>
+      <button id="duplicate-element" class="full" title="Crea una copia sulla stessa pagina (Ctrl+D)">Duplica elemento</button>
+      <button id="copy-pages" class="full">Copia su altre pagine…</button>
       <button id="delete-element" class="danger full">Elimina elemento</button>
       <p class="tiny">Puoi trascinarlo e ridimensionarlo dall’angolo in basso a destra.</p>
     </div>
     <div class="divider"></div><div class="section-label">GESTISCI QUESTA PAGINA</div>
-    <div class="page-actions"><button id="rotate" disabled><span>↻</span> Ruota di 90°</button><div class="button-row"><button id="pagebefore" disabled>← Prima</button><button id="pageafter" disabled>Dopo →</button></div><button id="blank" disabled><span>＋</span> Aggiungi pagina vuota</button><button id="merge" disabled><span>⊕</span> Unisci un altro PDF</button><button id="delete-page" class="danger" disabled>Elimina pagina</button></div>
+    <div class="page-actions"><button id="rotate" disabled><span>↻</span> Ruota di 90°</button><div class="button-row"><button id="pagebefore" disabled>← Prima</button><button id="pageafter" disabled>Dopo →</button></div><button id="blank" disabled><span>＋</span> Aggiungi pagina vuota</button><button id="merge" disabled><span>⊕</span> Aggiungi altri PDF…</button><button id="extract-pages" disabled>Estrai pagine…</button><button id="delete-page" class="danger" disabled>Elimina pagina</button></div>
     <div class="project-box"><strong>Vuoi riprenderlo più tardi?</strong><p>Il progetto conserva le aggiunte spostabili.</p><button id="save-project" disabled>Salva progetto</button><button id="load-project" class="link">Apri progetto</button></div>
   </aside>
 </main>
 <div class="bottomline"><span><span class="dot"></span> Elaborazione sul dispositivo</span><span id="status" role="status" aria-live="polite">Pronto per iniziare.</span><span>Fatto per le piccole cose di ogni giorno.</span></div>
-<input type="file" id="pdf-input" accept="application/pdf,.pdf" hidden><input type="file" id="merge-input" accept="application/pdf,.pdf" hidden><input type="file" id="image-input" accept="image/png,image/jpeg" hidden><input type="file" id="project-input" accept=".json,application/json" hidden>
+<input type="file" id="pdf-input" accept="application/pdf,.pdf" hidden><input type="file" id="merge-input" accept="application/pdf,.pdf" multiple hidden><input type="file" id="image-input" accept="image/png,image/jpeg" hidden><input type="file" id="project-input" accept=".json,application/json" hidden>
 
-<dialog id="info-dialog"><h2>Come funziona, in un minuto.</h2><ol><li><b>Apri il tuo PDF</b> o prova l’esempio.</li><li><b>Scegli uno strumento</b> e segui il suggerimento sopra la pagina.</li><li><b>Trascina le aggiunte</b>, poi scarica il PDF.</li></ol><p><b>Correggi il PDF:</b> trascina sul testo esistente e scrivi la sostituzione direttamente nel riquadro. È disponibile un font standard; non c’è OCR per le scansioni.</p><p><b>Quando scarichi il PDF, le pagine modificate diventano immagini</b>: il testo di quelle pagine non sarà selezionabile. Questo permette anche di eliminare il contenuto sotto le aree oscurate. Le pagine senza aggiunte conservano il contenuto originale.</p><p>Per riprendere le aggiunte e continuare a spostarle, usa <b>Salva progetto</b>. Il progetto contiene anche il PDF originale: conservalo per te, soprattutto se hai oscurato dei dati.</p><p>Una firma come immagine non è una firma digitale. Controlla sempre il PDF esportato prima di inviarlo.</p><button class="primary full" id="close-info">Ho capito, iniziamo</button></dialog>
+<dialog id="pages-dialog" aria-labelledby="pages-heading"><form id="pages-form" novalidate>
+<h2 id="pages-heading">Estrai pagine</h2><p id="pages-description"></p>
+<label class="field" for="pages-range">Numeri delle pagine<input id="pages-range" type="text" autocomplete="off" placeholder="Esempio: 1, 3-5" aria-describedby="pages-hint pages-summary pages-error"></label>
+<p id="pages-hint">Separa i numeri con una virgola e usa il trattino per un intervallo: <b>1, 3-5</b>. Si usa l’ordine attuale del documento.</p>
+<button id="pages-all" type="button">Tutte le pagine</button><p id="pages-summary" role="status" aria-live="polite"></p><p id="pages-error" role="alert"></p>
+<div class="dialog-actions"><button id="pages-cancel" type="button">Annulla</button><button id="pages-submit" class="primary" type="submit">Scarica le pagine</button></div>
+</form></dialog>
+<dialog id="info-dialog"><h2>Come funziona, in un minuto.</h2><ol><li><b>Apri il tuo PDF</b> o prova l’esempio.</li><li><b>Scegli uno strumento</b> e segui il suggerimento sopra la pagina.</li><li><b>Trascina le aggiunte</b>, poi scarica il PDF.</li></ol><p><b>Correggi il PDF:</b> trascina sul testo esistente e scrivi la sostituzione direttamente nel riquadro. È disponibile un font standard; non c’è OCR per le scansioni.</p><p><b>Quando scarichi il PDF, le pagine modificate diventano immagini</b>: il testo di quelle pagine non sarà selezionabile. Questo permette anche di eliminare il contenuto sotto le aree oscurate. Le pagine senza aggiunte conservano il contenuto originale.</p><p>Per riprendere le aggiunte e continuare a spostarle, usa <b>Salva progetto</b>. Il progetto contiene anche il PDF originale: conservalo per te, soprattutto se hai oscurato dei dati.</p><p><b>Riutilizza una firma o un’altra aggiunta:</b> selezionala e premi <b>Duplica</b>, oppure <b>Copia su altre pagine</b>. Con <b>Aggiungi altri PDF</b> unisci più file in fondo al documento. Con <b>Estrai pagine</b> scarichi solo le pagine che ti servono, mantenendo completo il documento aperto.</p><p>Una firma come immagine non è una firma digitale. Controlla sempre il PDF esportato prima di inviarlo.</p><button class="primary full" id="close-info">Ho capito, iniziamo</button></dialog>
 <dialog id="feedback-dialog" aria-labelledby="feedback-heading"><form id="feedback-form">
 <h2 id="feedback-heading">Aiutaci a migliorare E.Do.</h2>
 <p>Hai un suggerimento o hai trovato un problema? Puoi scriverci qui, senza creare un account.</p>

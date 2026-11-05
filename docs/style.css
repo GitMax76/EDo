@@ -43,3 +43,10 @@
 .signature-dialog>.dialog-actions{flex-shrink:0;margin:0;padding:12px 20px;border-top:1px solid #d8e5df;background:#fff;box-shadow:0 -4px 14px #163a340c;gap:8px}
 @media(min-width:761px){.signature-grid>section:first-child{position:sticky;top:0;align-self:start;background:#fff}}
 @media(max-width:760px){.signature-content{padding:12px 18px}.signature-dialog>.dialog-actions{padding:8px 12px;gap:6px}.signature-dialog>.dialog-actions button{font-size:14px;min-height:40px;padding:8px;flex:1 1 40%}.signature-dialog>.dialog-actions [data-action=insert]{order:-2}.signature-dialog>.dialog-actions [data-action=cancel]{order:-1;flex:0 0 auto}}
+
+/* Reuse selected elements and choose pages with the same controls on a phone. */
+#hinttext{flex:1;min-width:0}#quick-duplicate{flex-shrink:0;min-height:40px;font-size:14px;border-color:#94bca9;color:#116a54}
+#duplicate-element,#copy-pages{margin-bottom:8px}
+#pages-dialog .field{font-size:18px}#pages-dialog input{font-size:20px}#pages-dialog .dialog-actions{flex-wrap:wrap}#pages-dialog .dialog-actions button{min-height:44px}
+#pages-summary{color:#116a54}#pages-error{color:#a12b2b}#pages-error:empty{display:none}
+@media(max-width:760px){#pages-dialog{padding:20px}#pages-dialog .dialog-actions button{flex:1}#pages-dialog h2{font-size:24px}}
